@@ -14,7 +14,7 @@ Morphe-side ones (asset name, changelog presence, patch list version), so a brok
 caught locally instead of on the phone.
 
 Usage:
-    python3 scripts/validate-source-metadata.py [--repo OWNER/NAME] [--tag v3.11.0]
+    python3 scripts/validate-source-metadata.py [--repo OWNER/NAME] [--tag v1.0.0]
 """
 
 from __future__ import annotations

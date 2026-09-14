@@ -1,32 +1,35 @@
-<h1 align="center">Gboard Patches (moeunzinkh fork)</h1>
+# Gboard Patches (moeunzinkh)
 
-<p align="center">
-  Morphe patches for Gboard &mdash; upstream global + Taiwan-focused enhancements, plus our own additions.
-</p>
+A Morphe patch source for Gboard, maintained and published independently from this repository.
+**41 patches**, version **1.0.0** — every file a Morphe client needs is served from
+`github.com/moeunzinkh-debug/Gboard-`, not from any other project.
 
-<p align="center">
-  <a href="https://github.com/moeunzinkh-debug/Gboard-/releases/latest"><img alt="Latest release" src="https://img.shields.io/github/v/release/moeunzinkh-debug/Gboard-?display_name=tag&label=Release&style=for-the-badge"></a>
-  <a href="https://morphe.software/add-source?github=moeunzinkh-debug/Gboard-"><img alt="Add to Morphe" src="https://img.shields.io/badge/Morphe-Add%20Source-00A8FF?style=for-the-badge"></a>
-  <a href="https://github.com/jasonwu1994/Gboard-patches"><img alt="Upstream" src="https://img.shields.io/badge/Upstream-jasonwu1994%2FGboard--patches-6e5494?style=for-the-badge"></a>
-</p>
+Version numbering for this source starts at **1.0.0** and does not continue the inherited `3.x`
+line; that history is preserved in [docs/upstream-changelog.md](docs/upstream-changelog.md).
 
-## Add this source in Morphe Manager
+## Add the source in Morphe Manager
 
-* Deep link (tap on the phone): <https://morphe.software/add-source?github=moeunzinkh-debug/Gboard->
-* Or manually: **Sources -> `+` -> Remote** and paste
-  `https://github.com/moeunzinkh-debug/Gboard-`
+1. Tap this deep link on the phone:
+   <https://morphe.software/add-source?github=moeunzinkh-debug/Gboard->
+2. Or do it by hand: **Sources → `+` → Remote**, paste `https://github.com/moeunzinkh-debug/Gboard-`,
+   press **Add**.
+3. A healthy install shows **Patches 41** and **Version v1.0.0** on the source card.
 
-Morphe Manager never looks at your code. It reads exactly one file,
-`patches-bundle.json`, from the `main` branch of this repository, and downloads the `.mpp`
-bundle that file points at. If the release that the manifest references does not exist, the
-source cannot be installed. See [docs/morphe-source-setup.md](docs/morphe-source-setup.md)
-for the full checklist of everything a Morphe source needs.
+The manager never inspects the repository's code. It reads exactly two things from the `main`
+branch of this repo:
 
-បញ្ចូលតាម Morphe Manager ដោយចុច link ខាងលើ ឬវាយ `https://github.com/moeunzinkh-debug/Gboard-`
-ក្នុង Sources -> `+` -> Remote។ Manager អានតែឯកសារ `patches-bundle.json` នៅសាខា `main`
-រួចទាញយកឯកសារ `.mpp` តាម `download_url` ដូច្នេះត្រូវមាន GitHub Release ជាមុនសិន។
+| File | Role |
+| --- | --- |
+| `patches-bundle.json` | declares `version`, `created_at`, release notes (`description`) and `download_url` |
+| `patches-<version>.mpp` (release asset) | the actual bundle: patch dex, extension dex and resources |
 
-## Patches (41)
+So a GitHub Release carrying `patches-1.0.0.mpp` must exist before the source can be added.
+The full requirement list is documented in [docs/morphe-source-setup.md](docs/morphe-source-setup.md).
+
+## Patches
+
+Target: `com.google.android.inputmethod.latin`, Gboard version(s) currently declared:
+`18.0.3.954559732-release-arm64-v8a`
 
 | Patch | What it does |
 | --- | --- |
@@ -72,36 +75,67 @@ for the full checklist of everything a Morphe source needs.
 | Zhuyin Quick Traditional/Simplified Toggle | 注音 ㄥ 上滑快速切換繁簡 |
 | Zhuyin Slide Input | 注音鍵盤支持上下滑輸入 |
 
+This table is generated from `patches-list.json` (`./gradlew generatePatchesList`).
+
+## Requirements
+
+* Android 8.0 (API 26) or newer — same floor as Morphe itself.
+* A Morphe Manager whose bundled patcher is **1.8.0 or newer** (the bundle manifest declares
+  `Patcher-Version: 1.8.0`). A source built against a newer patcher than the installed manager
+  cannot be loaded.
+* The installed Gboard version must appear in each patch's `Compatibility` declaration.
+
 ## Building locally
 
-Local builds resolve the `app.morphe.patches` Gradle plugin from the Morphe GitHub Packages
-registry, which needs a GitHub token with `read:packages`:
+The `app.morphe.patches` Gradle plugin is resolved from the Morphe GitHub Packages registry, which
+rejects anonymous reads, so a token is required:
 
 ```bash
-export GITHUB_ACTOR=<your-github-user>
+export GITHUB_ACTOR=<github-username>
 export GITHUB_TOKEN=<pat-with-read:packages>
 ./gradlew :patches:buildAndroid generatePatchesList
-# result: patches/build/libs/patches-<version>.mpp  (~8 MB, contains classes*.dex)
-python3 scripts/validate-source-metadata.py   # check the manifest before publishing
+unzip -l patches/build/libs/patches-1.0.0.mpp | head     # must list classes.dex
 ```
 
-A sanity check on the produced bundle: `unzip -l patches/build/libs/patches-*.mpp` must list
-`classes.dex` and `META-INF/MANIFEST.MF`. A bundle of a few tens of kilobytes is an empty
-build and Morphe Manager will refuse to load it.
+A `.mpp` of a few tens of kilobytes means the build did not dex anything, and the manager will
+fail to load it. A complete bundle for this project is roughly 8 MB.
 
-## Releasing (how the source becomes addable)
+## Releasing
 
 ```bash
-python3 scripts/validate-source-metadata.py          # must pass
-git tag v<version-in-gradle.properties>
-git push origin v<version-in-gradle.properties>      # .github/workflows/release.yml builds + publishes
+# 1. bump gradle.properties version, patches-bundle.json (version + download_url) and CHANGELOG.md
+python3 scripts/validate-source-metadata.py          # must print OK
+git commit -am "chore: release <version>"
+git push origin main
+# 2. let CI build and publish
+git tag v<version> && git push origin v<version>
 ```
 
-The workflow requires the repository secret `MORPHE_PACKAGES_TOKEN` (a PAT with `read:packages`),
-and it fails fast when `gradle.properties`, `patches-bundle.json` and the tag disagree.
+`.github/workflows/release.yml` then builds with `:patches:buildAndroid generatePatchesList` and
+attaches `patches-<version>.mpp` to a new GitHub Release. Prerequisites in repository settings:
 
-## Upstream & credits
+* secret `MORPHE_PACKAGES_TOKEN` — a PAT with `read:packages` (Morphe registry access for CI)
+* Actions → General → Workflow permissions → **Read and write permissions**
 
-Based on [jasonwu1994/Gboard-patches](https://github.com/jasonwu1994/Gboard-patches)
-(GPL-3.0). All upstream patches, docs and design remain the work of Jason Wu and contributors;
-this fork adds our own patches (see [CHANGELOG.md](CHANGELOG.md)).
+Version policy: `fix:` bumps the patch number, `feat:` the minor one, breaking changes the major
+one, and pre-releases are tagged `1.1.0-dev.N` with the manifest mirrored on the `dev` branch so
+that users who enable *Pre-release patches* get them.
+
+## Optional polish
+
+* `patches-bundle.png` next to `patches-bundle.json` becomes the source icon in the manager.
+* A distinct icon and name keep this source visually separate from other Gboard patch sources.
+
+## License and provenance
+
+* Licensed under **GPL-3.0** (see [LICENSE](LICENSE)) with the conditions in [NOTICE](NOTICE).
+* This project continues work published upstream under the same GPL-3.0 licence; upstream authorship
+  is preserved in the git history and in [docs/upstream-changelog.md](docs/upstream-changelog.md).
+* Per `NOTICE` §7c, the name and branding of this source are distinct from both the upstream
+  project and the Morphe project itself.
+
+## Support
+
+* Issues and feature requests: <https://github.com/moeunzinkh-debug/Gboard-/issues>
+* How Morphe Manager resolves a source, and a troubleshooting table:
+  [docs/morphe-source-setup.md](docs/morphe-source-setup.md)
