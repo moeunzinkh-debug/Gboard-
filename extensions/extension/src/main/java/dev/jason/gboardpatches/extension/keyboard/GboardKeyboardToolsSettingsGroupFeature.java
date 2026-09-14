@@ -8,6 +8,7 @@ import java.util.List;
 import dev.jason.gboardpatches.extension.R;
 import dev.jason.gboardpatches.extension.calculator.GboardCalculatorSettingsFeature;
 import dev.jason.gboardpatches.extension.cursortrackpad.GboardCursorTrackpadSettingsFeature;
+import dev.jason.gboardpatches.extension.geminitranslation.GboardGeminiTranslationSettingsFeature;
 import dev.jason.gboardpatches.extension.longpressquickactions.GboardLongPressQuickActionsSettingsFeature;
 import dev.jason.gboardpatches.extension.manualincognito.GboardManualIncognitoSettingsFeature;
 import dev.jason.gboardpatches.extension.ocr.GboardOcrSettingsFeature;
@@ -43,7 +44,8 @@ public final class GboardKeyboardToolsSettingsGroupFeature
                         new GboardOcrSettingsFeature(context),
                         new GboardQuickInsertSettingsFeature(context),
                         new GboardFloatingWebSearchSettingsFeature(context),
-                        new GboardCalculatorSettingsFeature(context)));
+                        new GboardCalculatorSettingsFeature(context),
+                        new GboardGeminiTranslationSettingsFeature(context)));
     }
 
     @Override

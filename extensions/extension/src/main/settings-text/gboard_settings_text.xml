@@ -2978,4 +2978,128 @@
         <translation locale="en">The calculator settings screen failed to load. Reopen Gboard settings and try again.</translation>
         <translation locale="zh-Hant">計算機設定畫面載入失敗。請重新開啟 Gboard 設定再試一次。</translation>
     </string>
+    <string name="gboard_patches_gemini_translation_title">
+        <translation locale="en">Gemini Translation</translation>
+        <translation locale="zh-Hant">Gemini 翻譯</translation>
+    </string>
+    <string name="gboard_patches_gemini_translation_summary">
+        <translation locale="en">Translate the selected text or the whole text field with the Gemini API from an Access Point toolbar button. Your API key is stored only on this device.</translation>
+        <translation locale="zh-Hant">透過 Access Point 工具列按鈕，使用 Gemini API 翻譯選取文字或整個輸入框。API 金鑰只會儲存在此裝置。</translation>
+    </string>
+    <string name="gboard_patches_gemini_translation_enable_title">
+        <translation locale="en">Enable Gemini Translation</translation>
+        <translation locale="zh-Hant">啟用 Gemini 翻譯</translation>
+    </string>
+    <string name="gboard_patches_gemini_translation_enable_summary">
+        <translation locale="en">Adds a Translate button to the Access Point toolbar. Force-stop and restart Gboard for changes to take effect.</translation>
+        <translation locale="zh-Hant">在 Access Point 工具列新增翻譯按鈕。強制停止並重新啟動 Gboard 後生效。</translation>
+    </string>
+    <string name="gboard_patches_gemini_translation_section_feature">
+        <translation locale="en">Feature</translation>
+        <translation locale="zh-Hant">功能</translation>
+    </string>
+    <string name="gboard_patches_gemini_translation_section_api">
+        <translation locale="en">Gemini API</translation>
+        <translation locale="zh-Hant">Gemini API</translation>
+    </string>
+    <string name="gboard_patches_gemini_translation_section_language">
+        <translation locale="en">Translation</translation>
+        <translation locale="zh-Hant">翻譯</translation>
+    </string>
+    <string name="gboard_patches_gemini_translation_api_key_title">
+        <translation locale="en">API key</translation>
+        <translation locale="zh-Hant">API 金鑰</translation>
+    </string>
+    <string name="gboard_patches_gemini_translation_api_key_summary">
+        <translation locale="en">Create a key in Google AI Studio (aistudio.google.com). It is sent only to generativelanguage.googleapis.com and is excluded from backups.</translation>
+        <translation locale="zh-Hant">請在 Google AI Studio（aistudio.google.com）建立金鑰。金鑰只會傳送至 generativelanguage.googleapis.com，且不會包含在備份中。</translation>
+    </string>
+    <string name="gboard_patches_gemini_translation_api_key_unset">
+        <translation locale="en">Not set</translation>
+        <translation locale="zh-Hant">尚未設定</translation>
+    </string>
+    <string name="gboard_patches_gemini_translation_api_key_error">
+        <translation locale="en">Enter a valid Gemini API key.</translation>
+        <translation locale="zh-Hant">請輸入有效的 Gemini API 金鑰。</translation>
+    </string>
+    <string name="gboard_patches_gemini_translation_clear_key_title">
+        <translation locale="en">Remove API key</translation>
+        <translation locale="zh-Hant">移除 API 金鑰</translation>
+    </string>
+    <string name="gboard_patches_gemini_translation_clear_key_summary">
+        <translation locale="en">Deletes the stored key from this device.</translation>
+        <translation locale="zh-Hant">從此裝置刪除已儲存的金鑰。</translation>
+    </string>
+    <string name="gboard_patches_gemini_translation_model_title">
+        <translation locale="en">Model</translation>
+        <translation locale="zh-Hant">模型</translation>
+    </string>
+    <string name="gboard_patches_gemini_translation_model_summary">
+        <translation locale="en">Gemini model used for translation. Default: gemini-3.6-flash.</translation>
+        <translation locale="zh-Hant">用於翻譯的 Gemini 模型。預設：gemini-3.6-flash。</translation>
+    </string>
+    <string name="gboard_patches_gemini_translation_model_custom">
+        <translation locale="en">Custom model…</translation>
+        <translation locale="zh-Hant">自訂模型…</translation>
+    </string>
+    <string name="gboard_patches_gemini_translation_model_error">
+        <translation locale="en">Enter a valid model ID such as gemini-3.6-flash.</translation>
+        <translation locale="zh-Hant">請輸入有效的模型 ID，例如 gemini-3.6-flash。</translation>
+    </string>
+    <string name="gboard_patches_gemini_translation_target_title">
+        <translation locale="en">Translate into</translation>
+        <translation locale="zh-Hant">翻譯成</translation>
+    </string>
+    <string name="gboard_patches_gemini_translation_target_summary">
+        <translation locale="en">The source language is detected automatically.</translation>
+        <translation locale="zh-Hant">來源語言會自動偵測。</translation>
+    </string>
+    <string name="gboard_patches_gemini_translation_alternate_title">
+        <translation locale="en">When already in target language</translation>
+        <translation locale="zh-Hant">文字已是目標語言時</translation>
+    </string>
+    <string name="gboard_patches_gemini_translation_alternate_summary">
+        <translation locale="en">Optional second language used when the text is already written in the target language.</translation>
+        <translation locale="zh-Hant">選填。當文字已是目標語言時改翻譯成此語言。</translation>
+    </string>
+    <string name="gboard_patches_gemini_translation_alternate_none">
+        <translation locale="en">Do nothing</translation>
+        <translation locale="zh-Hant">不處理</translation>
+    </string>
+    <string name="gboard_patches_gemini_translation_language_custom">
+        <translation locale="en">Custom language…</translation>
+        <translation locale="zh-Hant">自訂語言…</translation>
+    </string>
+    <string name="gboard_patches_gemini_translation_language_error">
+        <translation locale="en">Enter a language name or code.</translation>
+        <translation locale="zh-Hant">請輸入語言名稱或代碼。</translation>
+    </string>
+    <string name="gboard_patches_gemini_translation_test_title">
+        <translation locale="en">Test connection</translation>
+        <translation locale="zh-Hant">測試連線</translation>
+    </string>
+    <string name="gboard_patches_gemini_translation_test_summary">
+        <translation locale="en">Sends “Hello, world!” to Gemini using the saved key and model.</translation>
+        <translation locale="zh-Hant">使用已儲存的金鑰與模型將「Hello, world!」傳送給 Gemini。</translation>
+    </string>
+    <string name="gboard_patches_gemini_translation_test_running">
+        <translation locale="en">Contacting Gemini…</translation>
+        <translation locale="zh-Hant">正在連線 Gemini…</translation>
+    </string>
+    <string name="gboard_patches_gemini_translation_test_success">
+        <translation locale="en">Gemini OK:</translation>
+        <translation locale="zh-Hant">Gemini 連線成功：</translation>
+    </string>
+    <string name="gboard_patches_gemini_translation_test_failure">
+        <translation locale="en">Gemini failed:</translation>
+        <translation locale="zh-Hant">Gemini 連線失敗：</translation>
+    </string>
+    <string name="gboard_patches_gemini_translation_error_title">
+        <translation locale="en">Gemini Translation setting unavailable</translation>
+        <translation locale="zh-Hant">Gemini 翻譯設定無法使用</translation>
+    </string>
+    <string name="gboard_patches_gemini_translation_error_summary">
+        <translation locale="en">The Gemini Translation settings screen failed to load. Reopen Gboard settings and try again.</translation>
+        <translation locale="zh-Hant">Gemini 翻譯設定畫面載入失敗。請重新開啟 Gboard 設定再試一次。</translation>
+    </string>
 </settings-text>

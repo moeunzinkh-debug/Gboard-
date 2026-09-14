@@ -1,3 +1,13 @@
+## [3.11.0](https://github.com/moeunzinkh-debug/Gboard-/compare/v3.10.0...v3.11.0) (2026-09-14)
+
+### ✨ New Features
+
+* **Gboard:** add the `Gemini Translation` patch. A Gemini Translate button in the Access Point toolbar auto-detects the language of the selected text (or the whole field) and replaces it with a translation from the Gemini API (default `gemini-3.6-flash`). The API key, model, target language and fallback language are managed in Patches settings; the key is stored on-device only and excluded from Backup & Restore.
+
+### ✨ 新功能
+
+* **Gboard:** 新增 `Gemini Translation` Patch。在 Access Point 工具列新增 Gemini 翻譯按鈕，自動偵測選取文字（或整個輸入框）的語言，並以 Gemini API（預設 `gemini-3.6-flash`）翻譯後取代原文。API 金鑰、模型、目標語言與備用語言可在 Patches 設定中管理；金鑰只儲存在裝置上且不會包含在備份與還原中。
+
 ## [3.10.0](https://github.com/jasonwu1994/Gboard-patches/compare/v3.9.0...v3.10.0) (2026-09-02)
 
 ### ✨ New Features

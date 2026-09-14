@@ -110,7 +110,9 @@ public final class GboardSettingsGroupingTest {
                 "new GboardCursorTrackpadSettingsFeature(context)",
                 "new GboardOcrSettingsFeature(context)",
                 "new GboardQuickInsertSettingsFeature(context)",
-                "new GboardFloatingWebSearchSettingsFeature(context)");
+                "new GboardFloatingWebSearchSettingsFeature(context)",
+                "new GboardCalculatorSettingsFeature(context)",
+                "new GboardGeminiTranslationSettingsFeature(context)");
         assertInOrder(layoutGroupSource.substring(layoutGroupSource.indexOf("Arrays.asList(")),
                 "new GboardSpacebarLogoSettingsFeature(context)",
                 "new GboardFlowModeSettingsFeature(context)",

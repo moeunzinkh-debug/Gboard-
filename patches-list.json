@@ -1,5 +1,5 @@
 {
-  "version": "3.10.0",
+  "version": "3.11.0",
   "patches": [
     {
       "name": "AI Writing Tools",
@@ -244,6 +244,18 @@
     {
       "name": "G Logo on Spacebar",
       "description": "在空白鍵顯示 G Logo，並隱藏語言名稱\nShow the G Logo on the spacebar and hide the language label.",
+      "use": true,
+      "dependencies": [],
+      "compatiblePackages": {
+        "com.google.android.inputmethod.latin": [
+          "18.0.3.954559732-release-arm64-v8a"
+        ]
+      },
+      "options": []
+    },
+    {
+      "name": "Gemini Translation",
+      "description": "在 Access Point 工具列新增 Gemini 翻譯按鈕，自動偵測語言並以 Gemini API 翻譯選取文字或整個輸入框；API 金鑰可在 Patches 設定中儲存。\nAdd a Gemini Translate button to the Access Point toolbar that auto-detects the language and translates the selected text or the whole field with the Gemini API; the API key is saved in Patches settings.",
       "use": true,
       "dependencies": [],
       "compatiblePackages": {

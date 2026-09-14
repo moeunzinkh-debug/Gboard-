@@ -81,6 +81,12 @@ Features designed and built by this project rather than simply unlocking an exis
 </details>
 
 <details>
+  <summary><code>Gemini Translation</code></summary>
+
+  Adds a Gemini Translate button to the Access Point toolbar. It auto-detects the language of the selected text (or the whole text field), translates it with the Gemini API (default model <code>gemini-3.6-flash</code>) and replaces the text in place. The API key, model, target language and optional fallback language are configured in <code>Patches settings &gt; Keyboard tools &gt; Gemini Translation</code>; the key is stored only on the device and is excluded from Backup &amp; Restore.
+</details>
+
+<details>
   <summary><code>Simple Calculator</code></summary>
 
   Adds an optional inline calculator for arithmetic expressions typed in any text field. The result appears in Gboard's suggestion row; tap it to replace the expression, or long-press it to copy the result.

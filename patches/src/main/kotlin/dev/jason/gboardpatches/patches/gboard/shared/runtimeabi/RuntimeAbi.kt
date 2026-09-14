@@ -55,6 +55,7 @@ internal enum class RuntimeCallId(internal val encodedAbi: String) {
     FLOW_MODE_RUNTIME_APPLY_FLAG_VALUE("Ldev/jason/gboardpatches/extension/flowmode/GboardFlowModeRuntime;->applyFlagValue(Ljava/lang/String;Ljava/lang/Object;)Ljava/lang/Object;"),
     FLOW_MODE_RUNTIME_MAP_KEY_CODE("Ldev/jason/gboardpatches/extension/flowmode/GboardFlowModeRuntime;->mapKeyCode(I)I"),
     GRAMMAR_CHECKER_RUNTIME_APPLY_FLAG_VALUE("Ldev/jason/gboardpatches/extension/featureflags/GboardFeatureFlagsRuntime;->applyGrammarCheckerFlagValue(Ljava/lang/String;Ljava/lang/Object;)Ljava/lang/Object;"),
+    GEMINI_TRANSLATION_RUNTIME_ON_INPUT_VIEW_STARTING("Ldev/jason/gboardpatches/extension/geminitranslation/GboardGeminiTranslationRuntime;->onInputViewStarting(Ljava/lang/Object;Landroid/view/inputmethod/EditorInfo;)V"),
     INLINE_SUGGESTIONS_RUNTIME_APPLY_FLAG_VALUE("Ldev/jason/gboardpatches/extension/featureflags/GboardFeatureFlagsRuntime;->applyInlineSuggestionsFlagValue(Ljava/lang/String;Ljava/lang/Object;)Ljava/lang/Object;"),
     KEY_SHAPE_SELECTION_RUNTIME_APPLY_FLAG_VALUE("Ldev/jason/gboardpatches/extension/featureflags/GboardFeatureFlagsRuntime;->applyKeyShapeSelectionFlagValue(Ljava/lang/String;Ljava/lang/Object;)Ljava/lang/Object;"),
     ENGLISH_UPPERCASE_TOGGLE_RUNTIME_CACHE_PATCHED_METADATA("Ldev/jason/gboardpatches/extension/keyboard/GboardEnglishUppercaseToggleRuntime;->cachePatchedMetadata(Ljava/lang/Object;Ljava/lang/Object;)Ljava/lang/Object;"),

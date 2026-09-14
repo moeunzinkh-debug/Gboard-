@@ -40,6 +40,9 @@ import dev.jason.gboardpatches.patches.gboard.features.webclipboard.gboardWebCli
 import dev.jason.gboardpatches.patches.gboard.features.webclipboard.gboardWebClipboardCapturePatch
 import dev.jason.gboardpatches.patches.gboard.features.webclipboard.gboardWebClipboardFeatureMarkerPatch
 import dev.jason.gboardpatches.patches.gboard.features.webclipboard.gboardWebClipboardManifestPatch
+import dev.jason.gboardpatches.patches.gboard.features.geminitranslation.gboardGeminiTranslationFeatureMarkerPatch
+import dev.jason.gboardpatches.patches.gboard.features.geminitranslation.gboardGeminiTranslationLifecyclePatch
+import dev.jason.gboardpatches.patches.gboard.features.geminitranslation.gboardGeminiTranslationManifestPatch
 import dev.jason.gboardpatches.patches.gboard.features.websearch.gboardFloatingWebSearchFeatureMarkerPatch
 import dev.jason.gboardpatches.patches.gboard.features.websearch.gboardFloatingWebSearchManifestPatch
 import dev.jason.gboardpatches.patches.gboard.features.englishqwerty.gboardEnglishUppercaseToggleFeatureMarkerPatch
@@ -208,6 +211,25 @@ val gboardFloatingWebSearchPatch = gboardPublicResourcePatch(
         gboardPatchesSettingsPatch,
         gboardFloatingWebSearchFeatureMarkerPatch,
         gboardFloatingWebSearchManifestPatch,
+        gboardAccessPointContributions1803Patch,
+    )
+}
+
+@Suppress("unused")
+val gboardGeminiTranslationPatch = gboardPublicResourcePatch(
+    featureId = "gemini_translation",
+    name = "Gemini Translation",
+    description = "在 Access Point 工具列新增 Gemini 翻譯按鈕，自動偵測語言並以 Gemini API 翻譯選取文字或整個輸入框；API 金鑰可在 Patches 設定中儲存。\n" +
+        "Add a Gemini Translate button to the Access Point toolbar that auto-detects the language and translates the selected text or the whole field with the Gemini API; the API key is saved in Patches settings.",
+    default = true,
+) {
+    compatibleWith(COMPATIBILITY_GBOARD)
+
+    dependsOn(
+        gboardPatchesSettingsPatch,
+        gboardGeminiTranslationFeatureMarkerPatch,
+        gboardGeminiTranslationManifestPatch,
+        gboardGeminiTranslationLifecyclePatch,
         gboardAccessPointContributions1803Patch,
     )
 }
@@ -805,6 +827,7 @@ object GboardPublishedPatchCatalog {
         gboardSpacebarLogoPatch,
         gboardManualIncognitoModePatch,
         gboardFloatingWebSearchPatch,
+        gboardGeminiTranslationPatch,
         gboardSimpleCalculatorPatch,
         gboardAdvancedVoiceTypingPatch,
         gboardBluetoothMicrophonePatch,

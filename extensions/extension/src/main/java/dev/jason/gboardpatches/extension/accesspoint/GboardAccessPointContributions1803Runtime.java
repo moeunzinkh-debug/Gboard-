@@ -5,6 +5,7 @@ import android.util.Log;
 
 import java.lang.reflect.Field;
 
+import dev.jason.gboardpatches.extension.geminitranslation.GboardGeminiTranslationAccessPoint1803Contribution;
 import dev.jason.gboardpatches.extension.manualincognito.GboardManualIncognitoRuntime;
 import dev.jason.gboardpatches.extension.settings.GboardPatchesFeatureAvailability;
 import dev.jason.gboardpatches.extension.websearch.GboardFloatingWebSearchAccessPoint1803Contribution;
@@ -34,6 +35,15 @@ public final class GboardAccessPointContributions1803Runtime {
         } catch (Throwable failure) {
             logFailure("Floating Web Search catalog contribution failed", failure);
         }
+        try {
+            if (hasFeature(context,
+                    GboardPatchesFeatureAvailability.FEATURE_GEMINI_TRANSLATION)) {
+                result = GboardGeminiTranslationAccessPoint1803Contribution.INSTANCE
+                        .extendOrderCatalog(context, result);
+            }
+        } catch (Throwable failure) {
+            logFailure("Gemini Translation catalog contribution failed", failure);
+        }
         return result;
     }
 
@@ -59,6 +69,15 @@ public final class GboardAccessPointContributions1803Runtime {
             }
         } catch (Throwable failure) {
             logFailure("Floating Web Search controller contribution failed", failure);
+        }
+        try {
+            if (hasFeature(context,
+                    GboardPatchesFeatureAvailability.FEATURE_GEMINI_TRANSLATION)) {
+                GboardGeminiTranslationAccessPoint1803Contribution.INSTANCE.register(
+                        controller, context);
+            }
+        } catch (Throwable failure) {
+            logFailure("Gemini Translation controller contribution failed", failure);
         }
     }
 
