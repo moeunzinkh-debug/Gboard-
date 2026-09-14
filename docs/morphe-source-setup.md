@@ -173,6 +173,7 @@ git history, `docs/upstream-changelog.md`, and the license section.
 | Someone else's patch list appears | `download_url` still points at another repository | retarget `patches-bundle.json` at your own release |
 | Bundle downloads but patch list is empty | `.mpp` has no dex (`jar` was run without `buildAndroid`) | rebuild with `:patches:buildAndroid` and re-publish |
 | Manager says it must be updated | bundle `Patcher-Version` newer than the manager's patcher | keep `morphe-patcher` at or below the manager's version, or update the manager |
+| Patching aborts with a `PatchException` on a patch that both sources ship (patch count roughly doubles, e.g. **81** = 40 + 41) | Two Gboard patch sources are enabled at once — this source continues upstream `Gboard Patches 3.x`, so the same methods are rewritten twice and the second source no longer recognises the stock shape | enable **only one** Gboard source; this one supersedes the upstream `3.x` source |
 | CI fails while resolving the plugin | `MORPHE_PACKAGES_TOKEN` missing or lacking `read:packages` | add/replace the secret |
 | CI fails at *Validate synced release metadata* | tag / `patches-bundle.json` / `gradle.properties` disagree | run `scripts/validate-source-metadata.py` before tagging |
 | Added, but never updates | manifest edited on a branch other than `main`/`dev` | merge it into `main` |
