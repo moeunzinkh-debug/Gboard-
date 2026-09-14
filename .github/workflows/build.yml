@@ -52,10 +52,35 @@ jobs:
       - name: Validate metadata
         run: python3 scripts/validate-source-metadata.py
 
-      - name: Verify bundle
+      - name: Resolve bundle version
+        id: bundle
         run: |
           set -e
-          MPP=$(ls patches/build/libs/patches-*.mpp | head -n1)
+          VERSION=$(sed -n 's/^[[:space:]]*version[[:space:]]*=[[:space:]]*//p' gradle.properties \
+            | head -n1 | sed 's/#.*//' | tr -d '[:space:]')
+          if [ -z "$VERSION" ]; then
+            echo "ERROR: could not read \`version\` from gradle.properties"
+            exit 1
+          fi
+          echo "version=$VERSION" >> "$GITHUB_OUTPUT"
+          echo "Bundle version: $VERSION"
+
+      - name: Verify bundle
+        env:
+          BUNDLE_VERSION: ${{ steps.bundle.outputs.version }}
+        run: |
+          set -e
+          echo "--- patches/build/libs ---"
+          ls -lh patches/build/libs/
+          # The Morphe plugin gives every Jar task `archiveExtension = "mpp"`, so `patches-*.mpp`
+          # also matches the `-javadoc` and `-sources` archives - and because `-` (0x2D) sorts
+          # before `.` (0x2E), `ls | head -n1` picks `patches-<version>-javadoc.mpp` instead of the
+          # real bundle. Always address the main bundle by its exact name.
+          MPP="patches/build/libs/patches-${BUNDLE_VERSION}.mpp"
+          if [ ! -f "$MPP" ]; then
+            echo "ERROR: $MPP was not produced by :patches:buildAndroid"
+            exit 1
+          fi
           echo "Bundle: $MPP"
           ls -lh "$MPP"
           echo "--- unzip -l (first 30) ---"
@@ -78,7 +103,7 @@ jobs:
         with:
           name: patches-bundle
           path: |
-            patches/build/libs/patches-*.mpp
+            patches/build/libs/patches-${{ steps.bundle.outputs.version }}.mpp
             patches-bundle.json
             patches-list.json
           if-no-files-found: error
