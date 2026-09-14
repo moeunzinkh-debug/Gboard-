@@ -84,6 +84,10 @@ This table is generated from `patches-list.json` (`./gradlew generatePatchesList
   `Patcher-Version: 1.8.0`). A source built against a newer patcher than the installed manager
   cannot be loaded.
 * The installed Gboard version must appear in each patch's `Compatibility` declaration.
+* **Only one Gboard patch source may be enabled at a time.** This source continues the upstream
+  `Gboard Patches 3.x` line, so enabling both makes two patch sets rewrite the same bytecode and the
+  session aborts with a `PatchException`. If your patch count is roughly double (e.g. **81** =
+  40 + 41), deselect the upstream source and keep this one.
 
 ## Building locally
 
