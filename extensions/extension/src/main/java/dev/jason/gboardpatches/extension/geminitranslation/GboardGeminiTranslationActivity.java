@@ -156,16 +156,17 @@ public final class GboardGeminiTranslationActivity extends Activity {
             } catch (Throwable failure) {
                 result = GboardGeminiTranslationClient.Result.failure("Translation failed");
             }
+            final GboardGeminiTranslationClient.Result finalResult = result;
             new Handler(Looper.getMainLooper()).post(() -> {
                 IN_FLIGHT.set(false);
                 setBusy(false);
-                if (result.isSuccess()) {
-                    pendingTranslation = result.getText();
-                    resultView.setText(result.getText());
+                if (finalResult.isSuccess()) {
+                    pendingTranslation = finalResult.getText();
+                    resultView.setText(finalResult.getText());
                 } else {
                     pendingTranslation = null;
                     resultView.setText(label("翻譯失敗：", "Translation failed: ")
-                            + result.getErrorMessage());
+                            + finalResult.getErrorMessage());
                 }
             });
         });
