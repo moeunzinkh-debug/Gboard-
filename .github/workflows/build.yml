@@ -1,0 +1,74 @@
+name: Build patch bundle (PR)
+
+on:
+  pull_request:
+    branches: [main, dev]
+  push:
+    branches: [main, dev, 'arena/*']
+  workflow_dispatch:
+
+jobs:
+  build:
+    name: Build .mpp
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      packages: read
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v6
+        with:
+          fetch-depth: 0
+
+      - name: Setup Java
+        uses: actions/setup-java@v5
+        with:
+          distribution: 'temurin'
+          java-version: '21'
+
+      - name: Cache Gradle
+        uses: burrunan/gradle-cache-action@v3
+
+      - name: Make Gradle wrapper executable
+        run: chmod +x ./gradlew
+
+      - name: Build patch bundle
+        env:
+          GITHUB_ACTOR: ${{ github.repository_owner }}
+          GITHUB_TOKEN: ${{ secrets.MORPHE_PACKAGES_TOKEN }}
+        run: ./gradlew :patches:buildAndroid generatePatchesList --stacktrace
+
+      - name: Validate metadata
+        run: python3 scripts/validate-source-metadata.py
+
+      - name: Verify bundle
+        run: |
+          set -e
+          MPP=$(ls patches/build/libs/patches-*.mpp | head -n1)
+          echo "Bundle: $MPP"
+          ls -lh "$MPP"
+          echo "--- unzip -l (first 30) ---"
+          unzip -l "$MPP" | head -n 30
+          echo "--- check classes.dex ---"
+          if ! unzip -l "$MPP" | grep -q "classes.dex"; then
+            echo "ERROR: classes.dex not found in bundle - build did not dex patches"
+            exit 1
+          fi
+          SIZE=$(stat -c%s "$MPP")
+          echo "Size: $SIZE bytes"
+          if [ "$SIZE" -lt 1000000 ]; then
+            echo "ERROR: bundle too small (<1MB), likely not a valid bundle (expected ~8MB)"
+            exit 1
+          fi
+          echo "OK: bundle looks valid"
+
+      - name: Upload bundle artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: patches-bundle
+          path: |
+            patches/build/libs/patches-*.mpp
+            patches-bundle.json
+            patches-list.json
+          if-no-files-found: error
+          retention-days: 14
