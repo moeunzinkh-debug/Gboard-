@@ -1,7 +1,7 @@
 {
-    "created_at":  "2026-09-02T10:38:52",
-    "description":  "### ✨ New Features\n\n* **Gboard:** add the `Backup \u0026 Restore` patch for exporting and restoring all patch settings, and for backing up, comparing, and restoring Gboard\u0027s PB/XML flag stores.\n\n### ✨ 新功能\n\n* **Gboard:** 新增 `Backup \u0026 Restore` Patch，可匯出與還原所有 Patch 設定，並支援備份、比較及還原 Gboard 的 PB/XML flag store。",
-    "download_url":  "https://github.com/jasonwu1994/Gboard-patches/releases/download/v3.10.0/patches-3.10.0.mpp",
-    "signature_download_url":  "",
-    "version":  "3.10.0"
+    "created_at": "2026-09-14T06:20:25",
+    "description": "### ✨ New in 1.0.0\n\n* First release published as an independent Morphe patch source of `github.com/moeunzinkh-debug/Gboard-`.\n* 41 patches for Gboard, including `Gemini Translation`, `Backup & Restore`, `Web Clipboard`, `FTP Server`, `Simple Calculator` and `Clipboard Enhancements`.\n* Version numbering restarts at 1.0.0, independent of the inherited 3.x line.\n\n### ✨ 1.0.0 重點\n\n* 首次以本 repository 獨立的 Morphe patch source 發布，不再依賴其他專案的 release。\n* 內含 41 個 Gboard Patch，包括 `Gemini Translation`、`Backup & Restore`、`Web Clipboard`、`FTP Server`、`Simple Calculator` 與 `Clipboard Enhancements`。\n* 版本由 1.0.0 重新開始計算，不再沿用原本的 3.x 編號。",
+    "download_url": "https://github.com/moeunzinkh-debug/Gboard-/releases/download/v1.0.0/patches-1.0.0.mpp",
+    "signature_download_url": "",
+    "version": "1.0.0"
 }

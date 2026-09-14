@@ -81,12 +81,12 @@ android {
     }
 
     defaultConfig {
-        buildConfigField("String", "PATCH_AUTHOR", "\"jasonwu1994\"")
-        buildConfigField("String", "PATCH_AUTHOR_URL", "\"https://github.com/jasonwu1994\"")
+        buildConfigField("String", "PATCH_AUTHOR", "\"moeunzinkh\"")
+        buildConfigField("String", "PATCH_AUTHOR_URL", "\"https://github.com/moeunzinkh-debug\"")
         buildConfigField(
             "String",
             "PATCH_REPOSITORY_URL",
-            "\"https://github.com/jasonwu1994/Gboard-patches\""
+            "\"https://github.com/moeunzinkh-debug/Gboard-\""
         )
         buildConfigField("String", "PATCH_VERSION", "\"${project.version}\"")
     }
