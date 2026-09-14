@@ -37,6 +37,17 @@ jobs:
           GITHUB_TOKEN: ${{ secrets.MORPHE_PACKAGES_TOKEN }}
         run: ./gradlew :patches:buildAndroid generatePatchesList
 
+      - name: Upload test reports on failure
+        if: failure()
+        uses: actions/upload-artifact@v4
+        with:
+          name: test-reports
+          path: |
+            patches/build/reports/tests/
+            patches/build/test-results/
+          if-no-files-found: ignore
+          retention-days: 7
+
       - name: Validate synced release metadata
         id: metadata
         shell: pwsh

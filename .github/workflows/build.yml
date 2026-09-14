@@ -38,6 +38,17 @@ jobs:
           GITHUB_TOKEN: ${{ secrets.MORPHE_PACKAGES_TOKEN }}
         run: ./gradlew :patches:buildAndroid generatePatchesList --stacktrace
 
+      - name: Upload test reports on failure
+        if: failure()
+        uses: actions/upload-artifact@v4
+        with:
+          name: test-reports
+          path: |
+            patches/build/reports/tests/
+            patches/build/test-results/
+          if-no-files-found: ignore
+          retention-days: 14
+
       - name: Validate metadata
         run: python3 scripts/validate-source-metadata.py
 

@@ -15,7 +15,6 @@ class GboardOcrPatchContractTest {
         val keyboardGroup = read(root, KEYBOARD_GROUP)
         val availability = read(root, AVAILABILITY)
         val settingsText = read(root, SETTINGS_TEXT)
-        val readme = read(root, README)
 
         assertTrue(registry.contains("val gboardOcrScanTextPatch = gboardPublicResourcePatch("))
         assertTrue(registry.contains("name = \"Enable OCR / Scan Text\""))
@@ -51,14 +50,14 @@ class GboardOcrPatchContractTest {
                 "下載官方模型</translation>",
         ))
         assertTrue(!settingsText.contains("gboard_patches_ocr_engine_summary"))
-        assertTrue(
-            readme.indexOf("<summary><code>Long-Press Editing Shortcuts</code></summary>") <
-                readme.indexOf("<summary><code>Enable OCR / Scan Text</code></summary>"),
+        // The README lists every published patch as one alphabetically ordered table row carrying
+        // the headline line of its bilingual description; the ordering contract between OCR and
+        // long-press editing shortcuts is asserted above against the extension settings group.
+        assertReadmeListsPatch(gboardOcrScanTextPatch.name, gboardOcrScanTextPatch.description)
+        assertReadmeListsPatch(
+            gboardLongPressQuickActionsPatch.name,
+            gboardLongPressQuickActionsPatch.description,
         )
-        assertTrue(readme.contains(
-            "Enable the OCR / Scan Text feature with Latin, Chinese, Japanese, Korean, and " +
-                "Devanagari recognition backends.",
-        ))
     }
 
     private fun read(root: Path, relative: String): String =
@@ -85,6 +84,5 @@ class GboardOcrPatchContractTest {
                 "GboardPatchesFeatureAvailability.java"
         const val SETTINGS_TEXT =
             "extensions/extension/src/main/settings-text/gboard_settings_text.xml"
-        const val README = "README.md"
     }
 }

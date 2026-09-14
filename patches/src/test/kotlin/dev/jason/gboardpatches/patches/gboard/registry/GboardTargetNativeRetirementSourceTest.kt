@@ -16,9 +16,7 @@ class GboardTargetNativeRetirementSourceTest {
             "patches/src/main/kotlin/dev/jason/gboardpatches/patches/gboard/registry/" +
                 "GboardPatchRegistry.kt",
         )
-        val includedPatches = readSource("README.md")
-            .substringAfter("## Included Patches")
-            .substringBefore("## Install")
+        val readmePatchNames = readmePatchRows().keys
 
         RETIRED_PATCH_NAMES.forEach { patchName ->
             assertFalse(
@@ -27,7 +25,7 @@ class GboardTargetNativeRetirementSourceTest {
             )
             assertFalse(
                 "$patchName must not remain in the active README inventory",
-                includedPatches.contains("<code>$patchName</code>"),
+                readmePatchNames.contains(patchName),
             )
         }
         RETIRED_REGISTRY_SYMBOLS.forEach { symbol ->
