@@ -22,6 +22,7 @@ public final class GboardGeminiTranslationSettingsFeature
         implements GboardPatchesSettingsContract.Feature {
     private static final String TAG = "GboardPatches";
     private static final String CUSTOM_VALUE = "__custom__";
+    private static final String GEMINI_API_KEY_URL = "https://aistudio.google.com/apikey";
 
     private final Context textContext;
 
@@ -88,6 +89,11 @@ public final class GboardGeminiTranslationSettingsFeature
                         : text(R.string.gboard_patches_gemini_translation_api_key_unset),
                 enabled,
                 () -> showApiKeyDialog(host)));
+        apiRows.add(new GboardPatchesSettingsContract.CommandRow(
+                text(R.string.gboard_patches_gemini_translation_get_api_key_title),
+                text(R.string.gboard_patches_gemini_translation_get_api_key_summary),
+                true,
+                () -> GboardPatchesSettingsContract.openExternalUrl(host, GEMINI_API_KEY_URL)));
         apiRows.add(new GboardPatchesSettingsContract.SelectorRow(
                 text(R.string.gboard_patches_gemini_translation_model_title),
                 text(R.string.gboard_patches_gemini_translation_model_summary),

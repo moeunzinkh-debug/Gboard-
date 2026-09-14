@@ -3030,6 +3030,14 @@
         <translation locale="en">Deletes the stored key from this device.</translation>
         <translation locale="zh-Hant">從此裝置刪除已儲存的金鑰。</translation>
     </string>
+    <string name="gboard_patches_gemini_translation_get_api_key_title">
+        <translation locale="en">Get API key</translation>
+        <translation locale="zh-Hant">取得 API 金鑰</translation>
+    </string>
+    <string name="gboard_patches_gemini_translation_get_api_key_summary">
+        <translation locale="en">Open Google AI Studio to create a Gemini API key.</translation>
+        <translation locale="zh-Hant">開啟 Google AI Studio 以建立 Gemini API 金鑰。</translation>
+    </string>
     <string name="gboard_patches_gemini_translation_model_title">
         <translation locale="en">Model</translation>
         <translation locale="zh-Hant">模型</translation>

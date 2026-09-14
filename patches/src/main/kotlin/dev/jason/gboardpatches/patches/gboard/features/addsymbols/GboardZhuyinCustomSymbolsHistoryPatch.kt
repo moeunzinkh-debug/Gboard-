@@ -145,25 +145,54 @@ private fun List<Instruction>.emoticonHistoryWriteShape(): EmoticonHistoryWriteS
         )
     }
 
-    val historyWriteIndex = singleEmoticonHistoryWriteIndex()
-    val fieldReadIndex = emoticonHistoryFieldReadIndex(historyWriteIndex)
+    val (historyWriteIndex, fieldReadIndex) = singleEmoticonHistoryWriteSite()
     return EmoticonHistoryWriteShape(
         ownGuardPresent = false,
-        historyFieldReadDistance = fieldReadIndex?.let { index -> historyWriteIndex - index },
-        foreignInvokeBeforeWrite = fieldReadIndex != null &&
-            hasInvokeBetween(fieldReadIndex, historyWriteIndex),
+        historyFieldReadDistance = historyWriteIndex - fieldReadIndex,
+        foreignInvokeBeforeWrite = hasInvokeBetween(fieldReadIndex, historyWriteIndex),
     )
 }
 
-private fun List<Instruction>.singleEmoticonHistoryWriteIndex(): Int {
-    val indices = indices.filter { index ->
+/**
+ * Index of the single history write in `Liyd.accept(Object)`.
+ *
+ * `Liyd.accept(Object)` invokes `gjl.b(String)V` from several switch cases (emoji, sticker and
+ * symbol clicks all record history), so matching the method reference alone finds more than one
+ * call and made the retired implementation abort with "found 3" on stock Gboard 18.0.3. The
+ * history write this delegate intercepts is the call whose receiver register is loaded from the
+ * `EmoticonKeyboardM2.b` field.
+ */
+private fun List<Instruction>.singleEmoticonHistoryWriteIndex(): Int =
+    singleEmoticonHistoryWriteSite().first
+
+/**
+ * The history write and the `iget-object` that loads its receiver.
+ *
+ * A candidate is a `gjl.b(String)V` call whose receiver register is loaded from
+ * [EMOTICON_HISTORY_FIELD_REFERENCE] within [HISTORY_FIELD_READ_SCAN_WINDOW] above it. Stock
+ * Gboard 18.0.3 reads that field immediately before the write (distance 1); when several calls
+ * read the field into their receiver, the call whose read sits closest is the history write.
+ */
+private fun List<Instruction>.singleEmoticonHistoryWriteSite(): Pair<Int, Int> {
+    val writeIndices = indices.filter { index ->
         this[index].isMethodReference(EMOTICON_HISTORY_WRITE_REFERENCE)
     }
-    check(indices.size == 1) {
-        "Expected one EmoticonKeyboardM2 history write, found ${indices.size}. " +
-            "$TARGET_REFERENCE must call $EMOTICON_HISTORY_WRITE_REFERENCE exactly once."
+    check(writeIndices.isNotEmpty()) {
+        "$TARGET_REFERENCE does not call $EMOTICON_HISTORY_WRITE_REFERENCE"
     }
-    return indices.single()
+    val writeSites = writeIndices.mapNotNull { writeIndex ->
+        emoticonHistoryFieldReadIndex(writeIndex)?.let { fieldReadIndex ->
+            writeIndex to fieldReadIndex
+        }
+    }
+    check(writeSites.isNotEmpty()) {
+        "No EmoticonKeyboardM2 history write found in $TARGET_REFERENCE: none of the " +
+            "$EMOTICON_HISTORY_WRITE_REFERENCE calls reads $EMOTICON_HISTORY_FIELD_REFERENCE " +
+            "into its receiver."
+    }
+    return writeSites.minByOrNull { (writeIndex, fieldReadIndex) ->
+        writeIndex - fieldReadIndex
+    } ?: error("Unreachable: $TARGET_REFERENCE has no history write")
 }
 
 /**

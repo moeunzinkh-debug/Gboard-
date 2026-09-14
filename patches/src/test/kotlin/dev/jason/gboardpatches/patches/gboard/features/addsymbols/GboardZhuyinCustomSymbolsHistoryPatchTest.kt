@@ -86,6 +86,23 @@ class GboardZhuyinCustomSymbolsHistoryPatchTest {
     }
 
     @Test
+    fun `history write is identified by its EmoticonKeyboardM2 b field read not by call count`() {
+        // Gboard 18.0.3's Liyd.accept(Object) calls Lgjl;->b(String)V from several switch cases
+        // (emoji, sticker and symbol clicks all record history), so counting method-reference
+        // matches reports three "history writes" and aborts with "Expected one
+        // EmoticonKeyboardM2 history write, found 3". The write this delegate targets is the
+        // call whose receiver register is loaded from EmoticonKeyboardM2.b.
+        val history = readPatch("GboardZhuyinCustomSymbolsHistoryPatch.kt")
+
+        assertTrue(history.contains("val writeIndices = indices.filter"))
+        assertTrue(history.contains("singleEmoticonHistoryWriteSite"))
+        assertTrue(history.contains("emoticonHistoryFieldReadIndex(writeIndex)"))
+        assertTrue(history.contains("check(writeIndices.isNotEmpty())"))
+        assertTrue(history.contains("check(writeSites.isNotEmpty())"))
+        assertTrue(history.contains("minByOrNull"))
+    }
+
+    @Test
     fun `history patch verifies its transformation and keeps its 1803 descriptors`() {
         val history = readPatch("GboardZhuyinCustomSymbolsHistoryPatch.kt")
 
