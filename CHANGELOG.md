@@ -6,6 +6,44 @@ This source starts its own version line at 1.0.0; the inherited 3.x history live
 
 ## [Unreleased]
 
+## [1.0.2](https://github.com/moeunzinkh-debug/Gboard-/releases/tag/v1.0.2) (2026-09-15)
+
+### ✨ Fixes
+
+* **Gboard — Gemini Translation:** tapping the toolbar button now reliably opens the Google
+  Translate style panel inside the keyboard: language chips with ⇄ swap, a source card that
+  mirrors the focused field, and a result card with ✓ insert and copy actions. The previous
+  docking asked the framework's inputArea frame for extra padding and pulled the bar into it with
+  a negative margin — when the IME window did not grow, the bar stayed invisible and the tap
+  appeared to do nothing. The bar now docks straight into Gboard's input view (a FrameLayout)
+  above the keyboard rows with elevation, the same placement the calculator suggestion strip
+  already uses, and when the latched input view is stale or missing it is recovered from the IME
+  window's own inputArea.
+* **Gboard — Gemini Translation:** the panel opens even before a Gemini API key is configured;
+  the result card carries an inline hint about the missing key instead of the tap degrading to a
+  toast. A missing key no longer hides the translation UI.
+
+### ✨ 修正
+
+* **Gboard — Gemini Translation:** 點工具列按鈕現在會確實在鍵盤內開啟 Google Translate 風格的翻譯
+  面板：語言 chip 與 ⇄ 交換、原文卡片（自動同步輸入框）、翻譯結果卡片（✓ 插入、複製）。舊的停靠
+  方式依賴 inputArea 增加 padding 並以負邊距把翻譯列拉進去 — IME 視窗沒長高時整列隱形、點了像
+  沒反應；現在直接停進 Gboard 的 input view、浮在鍵盤列上方（與計算機列相同做法），view 過期時
+  也會從 IME 視窗重新找回。
+* **Gboard — Gemini Translation:** 尚未設定 Gemini API 金鑰也會先開啟面板，並在結果卡片內顯示提示，
+  不再只跳 toast。
+
+### ✨ ការកែសម្រួល (ភាសាខ្មែរ)
+
+* **Gboard — Gemini Translation:** ពេលចុចប៊ូតុងបកប្រែ ឥឡូវបង្ហាញផ្ទាំងបកប្រែរចនាបថ Google
+  Translate នៅក្នុងក្ដារចុះជាក់លាក់ — ភាសាដើម/គោលដៅ មាន ⇄ ដើម្បីប្ដូរ ប្រអប់អត្ថបទដើម
+  (ស្វ័យបរវត្តិពីប្រអប់បញ្ចូល) និងប្រអប់លទ្ធផល ព្រមទាំង ✓ បញ្ចូល និងប៊ូតុងចម្លង។ ការដាក់
+  របារពីមុនពឹងផ្អែកលើការបន្ថែម padding ដល់ inputArea ដែលពេលខ្លះធ្វើឱ្យរបារមិនបង្ហាញសោះ;
+  ឥឡូវរបារត្រូវដាក់ចូលក្នុង input view របស់ Gboard ផ្ទាល់ ពីលើជួរក្ដារចុច ដូចនឹងរបារ
+  ការគណនាដែរ។
+* **Gboard — Gemini Translation:** ផ្ទាំងបើកបានទាំងពេលមិនទាន់ដាក់ Gemini API key ហើយបង្ហាញ
+  ការណែនាំនៅក្នុងប្រអប់លទ្ធផល។
+
 ## [1.0.1](https://github.com/moeunzinkh-debug/Gboard-/releases/tag/v1.0.1) (2026-09-15)
 
 ### ✨ Fixes

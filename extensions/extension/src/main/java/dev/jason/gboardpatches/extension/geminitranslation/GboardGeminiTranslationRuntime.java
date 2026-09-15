@@ -25,15 +25,15 @@ import java.util.concurrent.atomic.AtomicBoolean;
  * Runtime entry points for the Gemini Translation Access Point.
  *
  * <p>Tapping the toolbar icon docks {@link GboardGeminiTranslationPanel} inside Gboard's own input
- * window — a translation bar above the keyboard rows with language chips, the text to translate and
- * the result, mirroring Google Translate's typing UI while the keyboard stays fully usable. The
- * latched {@link InputMethodService} and keyboard view make the current {@link InputConnection}
- * reachable from that bar.
+ * view — a Google Translate style panel above the keyboard rows with language chips, the source
+ * text, the translation and insert/copy actions. The latched {@link InputMethodService} and
+ * keyboard view make the current {@link InputConnection} reachable from that panel, and the panel
+ * opens even before an API key is set, explaining inline what is missing.
  *
- * <p>When the bar cannot be docked (no live keyboard, an unexpected view hierarchy, a missing API
- * key) the tap falls back to the pre-existing in-place translation, which replaces the selection
- * or the whole field without ever showing a window. Every step fails closed so Gboard's input path
- * is never interrupted.
+ * <p>When the bar cannot be docked (no live keyboard, an unexpected view hierarchy) the tap falls
+ * back to the pre-existing in-place translation, which replaces the selection or the whole field
+ * without ever showing a window. Every step fails closed so Gboard's input path is never
+ * interrupted.
  */
 public final class GboardGeminiTranslationRuntime {
     private static final String TAG = "GboardPatches";
@@ -106,9 +106,10 @@ public final class GboardGeminiTranslationRuntime {
     /**
      * Opens or closes the translation bar for the toolbar icon.
      *
-     * <p>Docking the bar never fails visibly: when there is no live keyboard to dock into, or when
-     * its view hierarchy is not the expected one, the tap falls back to translating the selection
-     * in place.
+     * <p>The Google Translate style bar always opens first: the tap must show something, even
+     * before a Gemini API key is configured — the result card then carries an inline hint about
+     * what is missing. Only when there is no live keyboard to dock into (or its view hierarchy is
+     * not the expected one) does the tap fall back to translating the selection in place.
      *
      * @return {@code false} only when the feature is switched off, so the tap is swallowed
      */
@@ -120,16 +121,11 @@ public final class GboardGeminiTranslationRuntime {
             if (!settings.isEnabled()) {
                 return false;
             }
-            if (!settings.hasApiKey()) {
-                showToast(context, "សូមដាក់គ្រាប់សម្ងាត់ Gemini API ក្នុងការកំណត់ Patches"
-                                + " ជាមុនសិន",
-                        "請先在 Patches 設定輸入 Gemini API 金鑰",
-                        "Set your Gemini API key in Patches settings first");
-                return true;
-            }
             if (GboardGeminiTranslationPanel.toggle(context)) {
                 return true;
             }
+            // No live keyboard to dock into: the invisible in-place translation takes over and
+            // reports a missing API key, a missing field or an empty field through a toast.
             translateCurrentInput(context);
             return true;
         } catch (Throwable failure) {

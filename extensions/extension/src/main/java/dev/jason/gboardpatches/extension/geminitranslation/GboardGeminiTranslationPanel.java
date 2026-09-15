@@ -1,5 +1,6 @@
 package dev.jason.gboardpatches.extension.geminitranslation;
 
+import android.app.Dialog;
 import android.content.Context;
 import android.content.res.Configuration;
 import android.graphics.Color;
@@ -28,19 +29,21 @@ import java.util.concurrent.Executors;
 import java.util.concurrent.atomic.AtomicBoolean;
 
 /**
- * The Gemini translation bar, docked inside Gboard's own input window.
+ * The Gemini translation bar, docked inside Gboard's own input view.
  *
- * <p>Tapping the Gemini Translate Access Point no longer leaves the keyboard. The bar is added to
- * the frame that hosts Gboard's input view — the framework's {@code android.R.id.inputArea}
- * {@link FrameLayout} — with a gravity of {@code TOP}, a {@code topMargin} that pulls it back
- * into the extra {@code paddingTop} the bar asks for, and that same padding pushing the keyboard
- * rows down. The result is the Google Translate strip the screenshot shows: a back button, the
- * source language, a swap button, the target language and one rounded field carrying the text to
- * translate, with the keyboard still fully usable below it.
+ * <p>Tapping the Gemini Translate Access Point opens a Google Translate style panel right above
+ * the keyboard rows: a header with the source language, ⇄ and the target language, a source card
+ * that mirrors whatever the focused field holds, and a result card with the translation plus
+ * ✓ insert and copy actions. The bar docks straight into Gboard's input view — a FrameLayout
+ * subclass — floating above the keyboard rows with elevation, exactly like the calculator
+ * suggestion strip. That placement needs no window resizing: the previous approach asked the
+ * framework's inputArea frame for extra padding, and when the IME window refused to grow the bar
+ * stayed invisible and the tap appeared to do nothing.
  *
- * <p>Nothing of Gboard's is reparented, so a {@code setInputView} call from Gboard itself merely
- * detaches the bar and the lifecycle delegate drops its state. Every path fails closed and falls
- * back to the invisible in-place translation, so a layout surprise can never break typing.
+ * <p>The bar opens even before a Gemini API key is configured; the result card then carries an
+ * inline hint instead of only a toast. When the latched keyboard view is stale or was never
+ * handed over, it is recovered from the IME window's own inputArea. Nothing of Gboard's is
+ * reparented, every path fails closed, and a rebuilt keyboard simply detaches the bar.
  */
 public final class GboardGeminiTranslationPanel {
     /** Tag used to recognise the bar again on the keyboard's own view tree. */
@@ -52,10 +55,16 @@ public final class GboardGeminiTranslationPanel {
 
     /** Poll interval for mirroring the focused field into the bar while it is open. */
     private static final long MIRROR_INTERVAL_MS = 400L;
-    private static final int BAR_HEIGHT_FALLBACK_DP = 96;
-    private static final int CONTROL_HEIGHT_DP = 40;
+    private static final int CONTROL_HEIGHT_DP = 36;
+    private static final int TRANSLATE_BUTTON_DP = 40;
     private static final int BAR_MARGIN_DP = 6;
-    private static final int BAR_PADDING_DP = 8;
+    private static final int CARD_MARGIN_DP = 6;
+    private static final int CARD_PADDING_DP = 12;
+    private static final int CARD_RADIUS_DP = 16;
+    private static final int BAR_RADIUS_DP = 24;
+    private static final int BAR_ELEVATION_DP = 24;
+    private static final int SOURCE_MAX_LINES = 3;
+    private static final int RESULT_MAX_LINES = 4;
 
     private static final ExecutorService EXECUTOR = Executors.newSingleThreadExecutor(runnable -> {
         Thread thread = new Thread(runnable, "GboardPatches-GeminiTranslateBar");
@@ -97,49 +106,40 @@ public final class GboardGeminiTranslationPanel {
     private final LinearLayout bar;
     private final TextView sourceChip;
     private final TextView targetChip;
-    private final TextView pillText;
+    private final TextView sourceTextView;
+    private final TextView translateButton;
+    private final TextView resultTextView;
+    private final TextView insertButton;
     private final TextView copyButton;
-    private final TextView actionButton;
-    private final LinearLayout languagePickerRow;
-    private final HorizontalScrollView languagePicker;
     private final LinearLayout languageRow;
-
-    private final int savedPaddingLeft;
-    private final int savedPaddingTop;
-    private final int savedPaddingRight;
-    private final int savedPaddingBottom;
+    private final HorizontalScrollView languagePicker;
+    private final LinearLayout languagePickerRow;
 
     private final Runnable mirrorTick = this::mirrorEditorText;
-    private final View.OnLayoutChangeListener heightWatcher =
-            (view, left, top, right, bottom, oldLeft, oldTop, oldRight, oldBottom) ->
-                    syncBarInset(bottom - top);
 
     private GboardGeminiTranslationRuntime.Selection selection;
-    private String sourceText = "";
+    private String sourceValue = "";
     private String translatedText;
     private String statusMessage;
     private int state = STATE_SOURCE;
-    private boolean showingTranslation;
     private boolean pickerForTarget;
-    private int barInset;
     private String editorPackage;
 
     private GboardGeminiTranslationPanel(InputMethodService service, FrameLayout host) {
         this.service = service;
         this.host = host;
         this.palette = Palette.forKeyboard(host.getContext(), keyboardBackgroundColour(host));
-        this.savedPaddingLeft = host.getPaddingLeft();
-        this.savedPaddingTop = host.getPaddingTop();
-        this.savedPaddingRight = host.getPaddingRight();
-        this.savedPaddingBottom = host.getPaddingBottom();
 
         Context context = host.getContext();
-        this.bar = new LinearLayout(context);
+        bar = new LinearLayout(context);
         bar.setOrientation(LinearLayout.VERTICAL);
         bar.setTag(PANEL_TAG);
-        bar.setPadding(dp(BAR_PADDING_DP), dp(BAR_PADDING_DP), dp(BAR_PADDING_DP),
-                dp(BAR_PADDING_DP));
-        bar.setBackground(rounded(palette.surface, dp(18), Color.TRANSPARENT));
+        // The bar is a touch barrier: presses on its padding must never reach the keys below.
+        bar.setClickable(true);
+        bar.setPadding(dp(BAR_MARGIN_DP), dp(BAR_MARGIN_DP), dp(BAR_MARGIN_DP),
+                dp(BAR_MARGIN_DP));
+        bar.setBackground(rounded(palette.surface, dp(BAR_RADIUS_DP), Color.TRANSPARENT));
+        bar.setElevation(dp(BAR_ELEVATION_DP));
 
         languageRow = new LinearLayout(context);
         languageRow.setOrientation(LinearLayout.HORIZONTAL);
@@ -152,7 +152,7 @@ public final class GboardGeminiTranslationPanel {
 
         sourceChip = chip(label("ភាសាដើម", "來源語言", "Source language"));
         sourceChip.setOnClickListener(view -> openLanguagePicker(false));
-        languageRow.addView(sourceChip, chipParams(dp(BAR_MARGIN_DP)));
+        languageRow.addView(sourceChip, chipParams(dp(BAR_MARGIN_DP), 1f));
 
         TextView swap = control("⇄", label("ប្ដូរភាសា", "交換語言", "Swap languages"));
         swap.setOnClickListener(view -> swapLanguages());
@@ -160,45 +160,84 @@ public final class GboardGeminiTranslationPanel {
 
         targetChip = chip(label("ភាសាគោលដៅ", "目標語言", "Target language"));
         targetChip.setOnClickListener(view -> openLanguagePicker(true));
-        languageRow.addView(targetChip, chipParams(dp(BAR_MARGIN_DP)));
+        languageRow.addView(targetChip, chipParams(dp(BAR_MARGIN_DP), 1f));
         bar.addView(languageRow, rowParams());
 
-        LinearLayout content = new LinearLayout(context);
-        content.setOrientation(LinearLayout.HORIZONTAL);
-        content.setGravity(Gravity.CENTER_VERTICAL);
+        LinearLayout sourceCard = new LinearLayout(context);
+        sourceCard.setOrientation(LinearLayout.HORIZONTAL);
+        sourceCard.setGravity(Gravity.CENTER_VERTICAL);
+        sourceCard.setPadding(dp(CARD_PADDING_DP), dp(CARD_PADDING_DP), dp(CARD_PADDING_DP),
+                dp(CARD_PADDING_DP));
+        sourceCard.setBackground(rounded(palette.field, dp(CARD_RADIUS_DP), palette.fieldStroke));
 
-        pillText = new TextView(context);
-        pillText.setTextSize(TypedValue.COMPLEX_UNIT_SP, 15f);
-        pillText.setTextColor(palette.primaryText);
-        pillText.setMaxLines(2);
-        pillText.setEllipsize(TextUtils.TruncateAt.END);
-        pillText.setGravity(Gravity.CENTER_VERTICAL | Gravity.START);
-        pillText.setPadding(dp(14), dp(6), dp(14), dp(6));
-        pillText.setMinHeight(dp(CONTROL_HEIGHT_DP));
-        pillText.setBackground(rounded(palette.field, dp(20), palette.accent));
-        pillText.setOnClickListener(view -> onPillTapped());
-        pillText.setOnLongClickListener(view -> {
-            copyVisibleText();
-            return true;
-        });
-        content.addView(pillText, new LinearLayout.LayoutParams(
+        sourceTextView = new TextView(context);
+        sourceTextView.setTextSize(TypedValue.COMPLEX_UNIT_SP, 15f);
+        sourceTextView.setTextColor(palette.primaryText);
+        sourceTextView.setMaxLines(SOURCE_MAX_LINES);
+        sourceTextView.setEllipsize(TextUtils.TruncateAt.END);
+        sourceTextView.setGravity(Gravity.CENTER_VERTICAL | Gravity.START);
+        sourceTextView.setLineSpacing(dp(2), 1f);
+        sourceCard.addView(sourceTextView, new LinearLayout.LayoutParams(
                 0, ViewGroup.LayoutParams.WRAP_CONTENT, 1f));
 
-        copyButton = control(label("ចម្លង", "複製", "Copy"),
-                label("ចម្លងលទ្ធផលបកប្រែ", "複製翻譯結果", "Copy the translation"));
-        copyButton.setTextSize(TypedValue.COMPLEX_UNIT_SP, 12f);
-        copyButton.setVisibility(View.GONE);
-        copyButton.setOnClickListener(view -> copyTranslation());
-        LinearLayout.LayoutParams copyParams = controlParams();
-        copyParams.leftMargin = dp(BAR_MARGIN_DP);
-        content.addView(copyButton, copyParams);
+        translateButton = new TextView(context);
+        translateButton.setTextSize(TypedValue.COMPLEX_UNIT_SP, 20f);
+        translateButton.setTextColor(palette.onAccent);
+        translateButton.setGravity(Gravity.CENTER);
+        translateButton.setContentDescription(label("បកប្រែ", "翻譯", "Translate"));
+        translateButton.setBackground(circle(palette.accent));
+        translateButton.setClickable(true);
+        translateButton.setOnClickListener(view -> translate());
+        LinearLayout.LayoutParams translateParams = new LinearLayout.LayoutParams(
+                dp(TRANSLATE_BUTTON_DP), dp(TRANSLATE_BUTTON_DP));
+        translateParams.leftMargin = dp(CARD_MARGIN_DP);
+        sourceCard.addView(translateButton, translateParams);
+        LinearLayout.LayoutParams sourceCardParams = rowParams();
+        sourceCardParams.topMargin = dp(CARD_MARGIN_DP);
+        bar.addView(sourceCard, sourceCardParams);
 
-        actionButton = control("↻", label("បកប្រែ", "翻譯", "Translate"));
-        actionButton.setOnClickListener(view -> onActionTapped());
-        LinearLayout.LayoutParams actionParams = controlParams();
-        actionParams.leftMargin = dp(BAR_MARGIN_DP);
-        content.addView(actionButton, actionParams);
-        bar.addView(content, rowParams());
+        LinearLayout resultCard = new LinearLayout(context);
+        resultCard.setOrientation(LinearLayout.VERTICAL);
+        resultCard.setPadding(dp(CARD_PADDING_DP), dp(CARD_PADDING_DP), dp(CARD_PADDING_DP),
+                dp(8));
+        resultCard.setBackground(rounded(palette.resultField, dp(CARD_RADIUS_DP),
+                Color.TRANSPARENT));
+
+        resultTextView = new TextView(context);
+        resultTextView.setTextSize(TypedValue.COMPLEX_UNIT_SP, 15f);
+        resultTextView.setTextColor(palette.secondaryText);
+        resultTextView.setMaxLines(RESULT_MAX_LINES);
+        resultTextView.setEllipsize(TextUtils.TruncateAt.END);
+        resultTextView.setGravity(Gravity.CENTER_VERTICAL | Gravity.START);
+        resultTextView.setLineSpacing(dp(2), 1f);
+        resultTextView.setOnClickListener(view -> copyTranslation());
+        resultCard.addView(resultTextView, rowParams());
+
+        LinearLayout resultActions = new LinearLayout(context);
+        resultActions.setOrientation(LinearLayout.HORIZONTAL);
+        resultActions.setGravity(Gravity.END | Gravity.CENTER_VERTICAL);
+
+        insertButton = smallAction("✓ " + label("បញ្ចូល", "插入", "Insert"),
+                label("បញ្ចូលការបកប្រែ", "插入翻譯結果", "Insert the translation"));
+        insertButton.setOnClickListener(view -> insertTranslation());
+        resultActions.addView(insertButton);
+
+        copyButton = smallAction(label("ចម្លង", "複製", "Copy"),
+                label("ចម្លងលទ្ធផលបកប្រែ", "複製翻譯結果", "Copy the translation"));
+        LinearLayout.LayoutParams copyParams = new LinearLayout.LayoutParams(
+                ViewGroup.LayoutParams.WRAP_CONTENT, ViewGroup.LayoutParams.WRAP_CONTENT);
+        copyParams.leftMargin = dp(CARD_MARGIN_DP);
+        copyButton.setOnClickListener(view -> copyTranslation());
+        resultActions.addView(copyButton, copyParams);
+
+        LinearLayout.LayoutParams actionsParams = new LinearLayout.LayoutParams(
+                ViewGroup.LayoutParams.WRAP_CONTENT, ViewGroup.LayoutParams.WRAP_CONTENT);
+        actionsParams.topMargin = dp(4);
+        actionsParams.gravity = Gravity.END;
+        resultCard.addView(resultActions, actionsParams);
+        LinearLayout.LayoutParams resultCardParams = rowParams();
+        resultCardParams.topMargin = dp(CARD_MARGIN_DP);
+        bar.addView(resultCard, resultCardParams);
 
         languagePickerRow = new LinearLayout(context);
         languagePickerRow.setOrientation(LinearLayout.HORIZONTAL);
@@ -210,8 +249,7 @@ public final class GboardGeminiTranslationPanel {
         languagePicker.addView(languagePickerRow, new FrameLayout.LayoutParams(
                 ViewGroup.LayoutParams.WRAP_CONTENT, ViewGroup.LayoutParams.WRAP_CONTENT));
         languagePicker.setVisibility(View.GONE);
-        LinearLayout.LayoutParams pickerParams = rowParams();
-        bar.addView(languagePicker, pickerParams);
+        bar.addView(languagePicker, rowParams());
     }
 
     // ---------------------------------------------------------------------------------------
@@ -261,7 +299,7 @@ public final class GboardGeminiTranslationPanel {
             InputMethodService service =
                     GboardGeminiTranslationRuntime.unwrapInputMethodService(inputMethodService);
             if (service == null || service != current.service || inputView == null
-                    || inputView.getParent() != current.host
+                    || inputView != current.host
                     || current.bar.getParent() != current.host
                     || !current.host.isAttachedToWindow()) {
                 current.detach();
@@ -287,7 +325,7 @@ public final class GboardGeminiTranslationPanel {
         }
         GboardGeminiTranslationSettings.Snapshot settings =
                 GboardGeminiTranslationSettings.read(context);
-        if (!settings.isEnabled() || !settings.hasApiKey()) {
+        if (!settings.isEnabled()) {
             return false;
         }
         InputMethodService service = GboardGeminiTranslationRuntime.activeInputMethodService();
@@ -304,8 +342,10 @@ public final class GboardGeminiTranslationPanel {
     }
 
     /**
-     * The frame that holds Gboard's input view. Gboard never touches it, so its padding and an
-     * extra child are ours to use, and a rebuilt keyboard detaches the bar by itself.
+     * Gboard's own input view, which the lifecycle delegate latched. The view is a FrameLayout
+     * subclass, so the bar docks straight into it above the keyboard rows — the same placement
+     * the calculator suggestion strip uses. When the latch is empty or stale (a rebuilt keyboard,
+     * or a delegate that never fired) the view is recovered from the IME window's inputArea.
      */
     private static FrameLayout resolveHost(InputMethodService service) {
         try {
@@ -313,38 +353,71 @@ public final class GboardGeminiTranslationPanel {
                 return null;
             }
             View inputView = GboardGeminiTranslationRuntime.activeInputView();
-            if (inputView == null) {
-                return null;
+            if (!(inputView instanceof FrameLayout host)
+                    || !host.isAttachedToWindow()
+                    || host.getWidth() <= 0) {
+                inputView = resolveInputViewFromWindow(service);
+                if (!(inputView instanceof FrameLayout fresh)) {
+                    return null;
+                }
+                GboardGeminiTranslationRuntime.rememberInputView(fresh);
+                inputView = fresh;
             }
-            return inputView.getParent() instanceof FrameLayout host ? host : null;
+            return (FrameLayout) inputView;
         } catch (Throwable failure) {
             return null;
         }
     }
 
+    /** The current input view, found through the IME's own window when the latch missed it. */
+    private static View resolveInputViewFromWindow(InputMethodService service) {
+        try {
+            Dialog dialog = service.getWindow();
+            android.view.Window window = dialog == null ? null : dialog.getWindow();
+            if (window == null) {
+                return null;
+            }
+            int inputAreaId =
+                    service.getResources().getIdentifier("inputArea", "id", "android");
+            if (inputAreaId == 0) {
+                return null;
+            }
+            View inputArea = window.findViewById(inputAreaId);
+            if (!(inputArea instanceof ViewGroup group)) {
+                return null;
+            }
+            for (int index = group.getChildCount() - 1; index >= 0; index--) {
+                View child = group.getChildAt(index);
+                if (child != null && child.getVisibility() == View.VISIBLE
+                        && child.isAttachedToWindow() && !PANEL_TAG.equals(child.getTag())) {
+                    return child;
+                }
+            }
+        } catch (Throwable ignored) {
+            // The window fallback is best effort only.
+        }
+        return null;
+    }
+
     private boolean attach() {
-        int height = measureBarHeight();
-        if (height <= 0) {
+        int topMargin = resolveTopMargin();
+        if (topMargin < 0) {
             return false;
         }
-        barInset = height;
-        // The bar lives inside the extra top padding it asked the host for, and the keyboard rows
-        // start right below it. The height is pinned to what was measured once, so a squeezed
-        // window can never shrink the bar, shrink the padding and then let it grow again.
+        removeStaleBars(host);
         FrameLayout.LayoutParams params = new FrameLayout.LayoutParams(
-                ViewGroup.LayoutParams.MATCH_PARENT, height, Gravity.TOP);
-        params.topMargin = -height;
-        host.setPadding(savedPaddingLeft, savedPaddingTop + height, savedPaddingRight,
-                savedPaddingBottom);
+                ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.WRAP_CONTENT,
+                Gravity.TOP | Gravity.CENTER_HORIZONTAL);
+        params.leftMargin = dp(BAR_MARGIN_DP);
+        params.rightMargin = dp(BAR_MARGIN_DP);
+        params.topMargin = topMargin;
         host.addView(bar, params);
         bar.bringToFront();
-        bar.addOnLayoutChangeListener(heightWatcher);
         EditorInfo editorInfo = safeCurrentEditorInfo();
         editorPackage = editorInfo == null ? null : editorInfo.packageName;
         render();
         refreshFromEditor();
         scheduleMirror();
-        host.requestLayout();
         return true;
     }
 
@@ -352,13 +425,9 @@ public final class GboardGeminiTranslationPanel {
         GboardGeminiTranslationPanel current = active;
         try {
             MAIN_HANDLER.removeCallbacks(mirrorTick);
-            bar.removeOnLayoutChangeListener(heightWatcher);
             if (bar.getParent() == host) {
                 host.removeView(bar);
             }
-            host.setPadding(savedPaddingLeft, savedPaddingTop, savedPaddingRight,
-                    savedPaddingBottom);
-            host.requestLayout();
         } catch (Throwable ignored) {
             // Cleaning up after the bar must never reach Gboard.
         } finally {
@@ -366,6 +435,75 @@ public final class GboardGeminiTranslationPanel {
                 active = null;
             }
         }
+    }
+
+    /** Drops any orphaned bar left in this host by a panel that lost track of itself. */
+    private static void removeStaleBars(FrameLayout host) {
+        try {
+            for (int index = host.getChildCount() - 1; index >= 0; index--) {
+                View child = host.getChildAt(index);
+                if (child != null && PANEL_TAG.equals(child.getTag())) {
+                    host.removeViewAt(index);
+                }
+            }
+        } catch (Throwable ignored) {
+            // Stale bars are cosmetic; attaching still works.
+        }
+    }
+
+    /**
+     * Where the bar docks: just above Gboard's keyboard rows, located the same way the calculator
+     * suggestion strip finds them, so the bar never needs the IME window to grow.
+     */
+    private int resolveTopMargin() {
+        try {
+            if (host.getWidth() <= 0) {
+                return -1;
+            }
+            int[] hostLocation = new int[2];
+            host.getLocationOnScreen(hostLocation);
+            int keyboardTop = findKeyboardPanelTop(
+                    host, host, hostLocation[1], Integer.MAX_VALUE, 0);
+            if (keyboardTop == Integer.MAX_VALUE) {
+                return -1;
+            }
+            return Math.max(0, keyboardTop - hostLocation[1] + dp(4));
+        } catch (Throwable failure) {
+            return -1;
+        }
+    }
+
+    /**
+     * The screen top of the keyboard rows: the first visible descendant that is nearly as wide as
+     * the input view and at least 160dp tall, anchored to the bottom of the input view.
+     */
+    private static int findKeyboardPanelTop(FrameLayout host, View current,
+            int hostScreenTop, int bestScreenTop, int depth) {
+        if (current == null || depth > 16 || current.getVisibility() != View.VISIBLE
+                || !current.isAttachedToWindow()) {
+            return bestScreenTop;
+        }
+        if (current != host
+                && current.getWidth() >= Math.round(host.getWidth() * 0.85f)
+                && current.getHeight() >= dp(host.getContext(), 160)) {
+            int[] location = new int[2];
+            current.getLocationOnScreen(location);
+            int hostBottom = hostScreenTop + host.getHeight();
+            int minimumTop = hostScreenTop + host.getHeight() / 3;
+            if (location[1] >= minimumTop
+                    && location[1] + current.getHeight()
+                    >= hostBottom - dp(host.getContext(), 48)) {
+                bestScreenTop = Math.min(bestScreenTop, location[1]);
+            }
+        }
+        if (current instanceof ViewGroup group) {
+            for (int index = 0; index < group.getChildCount(); index++) {
+                bestScreenTop = findKeyboardPanelTop(
+                        host, group.getChildAt(index), hostScreenTop,
+                        bestScreenTop, depth + 1);
+            }
+        }
+        return bestScreenTop;
     }
 
     /** The solid colour the keyboard paints with, when it uses one at all. */
@@ -394,37 +532,6 @@ public final class GboardGeminiTranslationPanel {
         }
     }
 
-    private int measureBarHeight() {
-        try {
-            int width = host.getWidth() > 0
-                    ? host.getWidth()
-                    : host.getResources().getDisplayMetrics().widthPixels;
-            bar.measure(View.MeasureSpec.makeMeasureSpec(width, View.MeasureSpec.EXACTLY),
-                    View.MeasureSpec.makeMeasureSpec(0, View.MeasureSpec.UNSPECIFIED));
-            int measured = bar.getMeasuredHeight();
-            return measured > 0 ? measured : dp(BAR_HEIGHT_FALLBACK_DP);
-        } catch (Throwable failure) {
-            return dp(BAR_HEIGHT_FALLBACK_DP);
-        }
-    }
-
-    /** Keeps the keyboard pushed down by exactly the height the bar needs. */
-    private void syncBarInset(int height) {
-        if (height <= 0 || height == barInset || bar.getParent() != host) {
-            return;
-        }
-        barInset = height;
-        if (bar.getLayoutParams() instanceof FrameLayout.LayoutParams params) {
-            params.height = height;
-            params.topMargin = -height;
-            params.gravity = Gravity.TOP;
-            bar.setLayoutParams(params);
-        }
-        host.setPadding(savedPaddingLeft, savedPaddingTop + height, savedPaddingRight,
-                savedPaddingBottom);
-        host.requestLayout();
-    }
-
     // ---------------------------------------------------------------------------------------
     // Rendering.
     // ---------------------------------------------------------------------------------------
@@ -435,51 +542,59 @@ public final class GboardGeminiTranslationPanel {
                     GboardGeminiTranslationSettings.read(host.getContext());
             sourceChip.setText(languageLabel(settings.getAlternateLanguage()));
             targetChip.setText(languageLabel(settings.getTargetLanguage()));
-            pillText.setText(pillContent());
-            switch (state) {
-                case STATE_TRANSLATING:
-                    actionButton.setText("…");
-                    actionButton.setEnabled(false);
-                    actionButton.setContentDescription(label("កំពុងបកប្រែ", "翻譯中",
-                            "Translating"));
-                    copyButton.setVisibility(View.GONE);
-                    break;
-                case STATE_RESULT:
-                    actionButton.setText("✓");
-                    actionButton.setEnabled(true);
-                    actionButton.setContentDescription(label("បញ្ចូលការបកប្រែ", "插入翻譯結果",
-                            "Insert the translation"));
-                    copyButton.setVisibility(View.VISIBLE);
-                    break;
-                default:
-                    actionButton.setText("↻");
-                    actionButton.setEnabled(true);
-                    actionButton.setContentDescription(label("បកប្រែ", "翻譯", "Translate"));
-                    copyButton.setVisibility(View.GONE);
-                    break;
-            }
+            renderContents(settings);
+            boolean translating = state == STATE_TRANSLATING;
+            translateButton.setText(translating ? "…" : "↻");
+            translateButton.setEnabled(!translating);
+            translateButton.setContentDescription(translating
+                    ? label("កំពុងបកប្រែ", "翻譯中", "Translating")
+                    : label("បកប្រែ", "翻譯", "Translate"));
+            boolean hasResult = state == STATE_RESULT
+                    && translatedText != null && !translatedText.isEmpty();
+            insertButton.setEnabled(hasResult);
+            insertButton.setAlpha(hasResult ? 1f : 0.45f);
+            boolean canCopy = (translatedText != null && !translatedText.isEmpty())
+                    || !sourceValue.isEmpty();
+            copyButton.setEnabled(canCopy);
+            copyButton.setAlpha(canCopy ? 1f : 0.45f);
         } catch (Throwable ignored) {
             // A rendering failure simply leaves the previous frame on screen.
         }
     }
 
-    private String pillContent() {
-        if (state == STATE_TRANSLATING) {
-            return label("កំពុងបកប្រែ…", "翻譯中…", "Translating…");
-        }
-        if (state == STATE_RESULT && showingTranslation) {
-            return translatedText == null || translatedText.isEmpty()
-                    ? label("លទ្ធផលបកប្រែនឹងបង្ហាញនៅទីនេះ", "翻譯結果會顯示在這裡",
-                            "Translation will appear here")
-                    : translatedText;
-        }
-        if (statusMessage != null && !statusMessage.isEmpty()) {
-            return statusMessage;
-        }
-        return sourceText.isEmpty()
+    /** The source card mirrors the field; the result card carries status or the translation. */
+    private void renderContents(GboardGeminiTranslationSettings.Snapshot settings) {
+        String source = sourceValue == null ? "" : sourceValue;
+        sourceTextView.setText(source.isEmpty()
                 ? label("រាយបញ្ចូលនៅទីនេះ ដើម្បីបកប្រែ", "輸入要翻譯的文字…",
                         "Type text to translate…")
-                : sourceText;
+                : source);
+        sourceTextView.setTextColor(source.isEmpty()
+                ? palette.secondaryText : palette.primaryText);
+
+        String result;
+        int resultColour = palette.primaryText;
+        if (state == STATE_TRANSLATING) {
+            result = label("កំពុងបកប្រែ…", "翻譯中…", "Translating…");
+            resultColour = palette.secondaryText;
+        } else if (statusMessage != null && !statusMessage.isEmpty()) {
+            result = statusMessage;
+            resultColour = palette.secondaryText;
+        } else if (!settings.hasApiKey()) {
+            result = label("សូមដាក់គ្រាប់សម្ងាត់ Gemini API ក្នុងការកំណត់ Patches ជាមុនសិន",
+                    "請先在 Patches 設定輸入 Gemini API 金鑰",
+                    "Set your Gemini API key in Patches settings first");
+            resultColour = palette.secondaryText;
+        } else if (state == STATE_RESULT
+                && translatedText != null && !translatedText.isEmpty()) {
+            result = translatedText;
+        } else {
+            result = label("លទ្ធផលបកប្រែនឹងបង្ហាញនៅទីនេះ", "翻譯結果會顯示在這裡",
+                    "Translation will appear here");
+            resultColour = palette.secondaryText;
+        }
+        resultTextView.setText(result);
+        resultTextView.setTextColor(resultColour);
     }
 
     private String languageLabel(String code) {
@@ -499,25 +614,6 @@ public final class GboardGeminiTranslationPanel {
     // Interaction.
     // ---------------------------------------------------------------------------------------
 
-    private void onPillTapped() {
-        if (state == STATE_SOURCE) {
-            translate();
-            return;
-        }
-        if (state == STATE_RESULT) {
-            showingTranslation = !showingTranslation;
-            render();
-        }
-    }
-
-    private void onActionTapped() {
-        if (state == STATE_RESULT) {
-            insertTranslation();
-            return;
-        }
-        translate();
-    }
-
     private void swapLanguages() {
         try {
             Context context = host.getContext();
@@ -533,11 +629,11 @@ public final class GboardGeminiTranslationPanel {
             }
             GboardGeminiTranslationSettings.writeTargetLanguage(context, alternate);
             GboardGeminiTranslationSettings.writeAlternateLanguage(context, target);
-            if (state == STATE_RESULT && translatedText != null) {
-                String previousSource = sourceText;
-                sourceText = translatedText;
+            if (state == STATE_RESULT && translatedText != null && !translatedText.isEmpty()) {
+                // Like Google Translate: the translation becomes the new source.
+                String previousSource = sourceValue;
+                sourceValue = translatedText;
                 translatedText = previousSource;
-                showingTranslation = false;
             }
             render();
         } catch (Throwable ignored) {
@@ -578,7 +674,7 @@ public final class GboardGeminiTranslationPanel {
             closeLanguagePicker();
             render();
         });
-        languagePickerRow.addView(chip, chipParams(dp(4)));
+        languagePickerRow.addView(chip, pickerChipParams(dp(4)));
     }
 
     private void closeLanguagePicker() {
@@ -608,8 +704,9 @@ public final class GboardGeminiTranslationPanel {
     }
 
     /**
-     * Picks up whatever the focused field holds right now, so typing on the keyboard feeds the bar
-     * without leaving it.
+     * Picks up whatever the focused field holds right now, so typing on the keyboard feeds the
+     * source card without leaving it. A finished translation is left alone until the next
+     * translate press, which is what keeps ⇄ swap meaningful.
      */
     private void refreshFromEditor() {
         try {
@@ -624,20 +721,21 @@ public final class GboardGeminiTranslationPanel {
             }
             if (read.wasSelection) {
                 // A real selection is a deliberate range, so it wins over the live field text.
-                if (selection != null && read.text.equals(selection.text)) {
+                if (selection != null && selection.wasSelection
+                        && read.text.equals(selection.text)) {
                     return;
                 }
                 selection = read;
-                sourceText = read.text;
-                state = STATE_SOURCE;
-                showingTranslation = false;
+                sourceValue = read.text;
+                translatedText = null;
                 statusMessage = null;
+                state = STATE_SOURCE;
                 render();
                 return;
             }
             selection = read;
-            if (state == STATE_SOURCE && !read.text.equals(sourceText)) {
-                sourceText = read.text;
+            if (state == STATE_SOURCE && !read.text.equals(sourceValue)) {
+                sourceValue = read.text;
                 statusMessage = null;
                 render();
             }
@@ -647,7 +745,7 @@ public final class GboardGeminiTranslationPanel {
     }
 
     private void translate() {
-        final String text = sourceText == null ? "" : sourceText.trim();
+        final String text = sourceValue == null ? "" : sourceValue.trim();
         if (text.isEmpty()) {
             GboardGeminiTranslationRuntime.showToast(host.getContext(),
                     "សូមរាយបញ្ចូលអត្ថបទជាមុនសិន", "請先輸入文字", "Enter some text first");
@@ -669,6 +767,7 @@ public final class GboardGeminiTranslationPanel {
                     "សូមដាក់ Gemini API key ក្នុងការកំណត់ Patches ជាមុនសិន",
                     "請先在 Patches 設定輸入 Gemini API 金鑰",
                     "Set your Gemini API key in Patches settings first");
+            render();
             return;
         }
         statusMessage = null;
@@ -696,12 +795,10 @@ public final class GboardGeminiTranslationPanel {
         }
         if (result.isSuccess()) {
             translatedText = result.getText();
-            showingTranslation = true;
             statusMessage = null;
             state = STATE_RESULT;
         } else {
             translatedText = null;
-            showingTranslation = false;
             statusMessage = label("ការបកប្រែបានបរាជ័យ៖ ", "翻譯失敗：", "Translation failed: ")
                     + result.getErrorMessage();
             state = STATE_SOURCE;
@@ -747,19 +844,12 @@ public final class GboardGeminiTranslationPanel {
     }
 
     private void copyTranslation() {
-        String translation = translatedText == null ? sourceText : translatedText;
+        String translation = translatedText != null && !translatedText.isEmpty()
+                ? translatedText
+                : sourceValue;
         GboardGeminiTranslationRuntime.copyToClipboard(host.getContext(), translation);
         GboardGeminiTranslationRuntime.showToast(host.getContext(), "បានចម្លងលទ្ធផលបកប្រែ",
                 "已複製翻譯", "Translation copied");
-    }
-
-    private void copyVisibleText() {
-        String text = state == STATE_RESULT && showingTranslation && translatedText != null
-                ? translatedText
-                : sourceText;
-        GboardGeminiTranslationRuntime.copyToClipboard(host.getContext(), text);
-        GboardGeminiTranslationRuntime.showToast(host.getContext(), "បានចម្លងអត្ថបទ", "複製成功",
-                "Copied");
     }
 
     // ---------------------------------------------------------------------------------------
@@ -772,11 +862,10 @@ public final class GboardGeminiTranslationPanel {
         chip.setTextSize(TypedValue.COMPLEX_UNIT_SP, 13f);
         chip.setTextColor(palette.primaryText);
         chip.setSingleLine(true);
-        chip.setMaxEms(9);
         chip.setEllipsize(TextUtils.TruncateAt.END);
         chip.setGravity(Gravity.CENTER);
         chip.setPadding(dp(14), dp(6), dp(14), dp(6));
-        chip.setBackground(rounded(palette.field, dp(20), Color.TRANSPARENT));
+        chip.setBackground(rounded(palette.field, dp(18), Color.TRANSPARENT));
         chip.setClickable(true);
         return chip;
     }
@@ -788,16 +877,38 @@ public final class GboardGeminiTranslationPanel {
         control.setTextColor(palette.primaryText);
         control.setGravity(Gravity.CENTER);
         control.setContentDescription(description);
-        control.setBackground(rounded(palette.field, dp(20), Color.TRANSPARENT));
+        control.setBackground(rounded(palette.field, dp(18), Color.TRANSPARENT));
         control.setClickable(true);
         return control;
+    }
+
+    private TextView smallAction(String text, String description) {
+        TextView action = new TextView(host.getContext());
+        action.setText(text);
+        action.setTextSize(TypedValue.COMPLEX_UNIT_SP, 13f);
+        action.setTextColor(palette.accent);
+        action.setGravity(Gravity.CENTER);
+        action.setContentDescription(description);
+        action.setPadding(dp(12), dp(6), dp(12), dp(6));
+        action.setMinHeight(dp(30));
+        action.setBackground(rounded(palette.field, dp(15), palette.fieldStroke));
+        action.setClickable(true);
+        return action;
     }
 
     private LinearLayout.LayoutParams controlParams() {
         return new LinearLayout.LayoutParams(dp(CONTROL_HEIGHT_DP), dp(CONTROL_HEIGHT_DP));
     }
 
-    private LinearLayout.LayoutParams chipParams(int margin) {
+    private LinearLayout.LayoutParams chipParams(int margin, float weight) {
+        LinearLayout.LayoutParams params = new LinearLayout.LayoutParams(
+                0, dp(CONTROL_HEIGHT_DP), weight);
+        params.leftMargin = margin;
+        params.rightMargin = margin;
+        return params;
+    }
+
+    private LinearLayout.LayoutParams pickerChipParams(int margin) {
         LinearLayout.LayoutParams params = new LinearLayout.LayoutParams(
                 ViewGroup.LayoutParams.WRAP_CONTENT, dp(CONTROL_HEIGHT_DP));
         params.leftMargin = margin;
@@ -820,8 +931,21 @@ public final class GboardGeminiTranslationPanel {
         return background;
     }
 
+    private GradientDrawable circle(int color) {
+        GradientDrawable background = new GradientDrawable();
+        background.setShape(GradientDrawable.OVAL);
+        background.setColor(color);
+        return background;
+    }
+
     private int dp(int value) {
         return Math.max(1, Math.round(value * host.getResources().getDisplayMetrics().density));
+    }
+
+    private static int dp(Context context, int value) {
+        float density = context != null
+                ? context.getResources().getDisplayMetrics().density : 1f;
+        return Math.max(1, Math.round(value * density));
     }
 
     private static boolean isKhmerLocale() {
@@ -839,32 +963,61 @@ public final class GboardGeminiTranslationPanel {
 
     /** Bar colours; the keyboard's own background wins so themes keep matching. */
     private static final class Palette {
+        private static final int ACCENT_LIGHT = 0xff1a73e8;
+        private static final int ACCENT_DARK = 0xff8ab4f8;
+
         private final int surface;
         private final int field;
+        private final int resultField;
+        private final int fieldStroke;
         private final int primaryText;
+        private final int secondaryText;
         private final int accent;
+        private final int onAccent;
 
-        private Palette(int surface, int field, int primaryText, int accent) {
+        private Palette(int surface, int field, int resultField, int fieldStroke,
+                int primaryText, int secondaryText, int accent, int onAccent) {
             this.surface = surface;
             this.field = field;
+            this.resultField = resultField;
+            this.fieldStroke = fieldStroke;
             this.primaryText = primaryText;
+            this.secondaryText = secondaryText;
             this.accent = accent;
+            this.onAccent = onAccent;
         }
 
         static Palette forKeyboard(Context context, Integer keyboardColour) {
             if (keyboardColour != null) {
-                boolean dark = isDark(keyboardColour);
+                if (isDark(keyboardColour)) {
+                    return new Palette(keyboardColour,
+                            tint(keyboardColour, 0.16f),
+                            blend(keyboardColour, ACCENT_DARK, 0.20f),
+                            tint(keyboardColour, 0.28f),
+                            Color.WHITE,
+                            0xff9aa0a6,
+                            ACCENT_DARK,
+                            0xff0b1d33);
+                }
                 return new Palette(keyboardColour,
-                        tint(keyboardColour, dark ? 0.12f : -0.06f),
-                        dark ? Color.WHITE : 0xff202124,
-                        dark ? 0xff8ab4f8 : 0xff1a73e8);
+                        tint(keyboardColour, -0.03f),
+                        blend(keyboardColour, ACCENT_LIGHT, 0.10f),
+                        tint(keyboardColour, -0.10f),
+                        0xff202124,
+                        0xff5f6368,
+                        ACCENT_LIGHT,
+                        Color.WHITE);
             }
             boolean dark = context != null
                     && (context.getResources().getConfiguration().uiMode
                     & Configuration.UI_MODE_NIGHT_MASK) == Configuration.UI_MODE_NIGHT_YES;
             return dark
-                    ? new Palette(0xff202124, 0xff3c4043, Color.WHITE, 0xff8ab4f8)
-                    : new Palette(0xfff8f9fa, 0xffe8eaed, 0xff202124, 0xff1a73e8);
+                    ? new Palette(0xff303134, 0xff3c4043,
+                            blend(0xff303134, ACCENT_DARK, 0.20f),
+                            0xff4a4d51, Color.WHITE, 0xff9aa0a6, ACCENT_DARK, 0xff0b1d33)
+                    : new Palette(0xffffffff, 0xfff8f9fa,
+                            blend(0xffffffff, ACCENT_LIGHT, 0.10f),
+                            0xffdadce0, 0xff202124, 0xff5f6368, ACCENT_LIGHT, Color.WHITE);
         }
 
         /** Lightens a colour when {@code amount} is positive, darkens it when negative. */
@@ -876,8 +1029,20 @@ public final class GboardGeminiTranslationPanel {
             return Color.argb(Color.alpha(colour), red, green, blue);
         }
 
+        /** Mixes {@code overlay} into {@code base}; the tint Google gives translated text. */
+        private static int blend(int base, int overlay, float ratio) {
+            float inverse = 1f - ratio;
+            int red = clampChannel(
+                    Math.round(Color.red(base) * inverse + Color.red(overlay) * ratio));
+            int green = clampChannel(
+                    Math.round(Color.green(base) * inverse + Color.green(overlay) * ratio));
+            int blue = clampChannel(
+                    Math.round(Color.blue(base) * inverse + Color.blue(overlay) * ratio));
+            return Color.argb(0xff, red, green, blue);
+        }
+
         private static int clampChannel(int value) {
-            return value < 0 ? 0 : Math.min(value, 255);
+            return value < 0 ? 0 : Math.min(255, value);
         }
 
         private static boolean isDark(int colour) {
