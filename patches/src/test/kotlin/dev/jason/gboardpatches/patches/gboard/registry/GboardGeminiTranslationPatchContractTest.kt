@@ -5,15 +5,23 @@ import dev.jason.gboardpatches.patches.gboard.features.geminitranslation.gboardG
 import dev.jason.gboardpatches.patches.gboard.features.geminitranslation.gboardGeminiTranslationManifestPatch
 import dev.jason.gboardpatches.patches.gboard.shared.accesspoint.gboardAccessPointContributions1803Patch
 import dev.jason.gboardpatches.patches.gboard.shared.gboardPatchesSettingsPatch
+import dev.jason.gboardpatches.patches.gboard.shared.runtimeabi.RuntimeAbiCatalog
+import dev.jason.gboardpatches.patches.gboard.shared.runtimeabi.RuntimeCallId
 import java.nio.charset.StandardCharsets
 import java.nio.file.Files
 import java.nio.file.Path
+import org.junit.Assert.assertEquals
 import org.junit.Assert.assertFalse
 import org.junit.Assert.assertSame
 import org.junit.Assert.assertTrue
 import org.junit.Test
 
 class GboardGeminiTranslationPatchContractTest {
+    private val featureRoot = "extensions/extension/src/main/java/dev/jason/gboardpatches/" +
+        "extension/geminitranslation/"
+    private val patchRoot = "patches/src/main/kotlin/dev/jason/gboardpatches/patches/gboard/" +
+        "features/geminitranslation/"
+
     @Test
     fun publicPatchIsIndependentDefaultOnAndOwnsTheRequiredClosure() {
         val patch = GboardPublishedPatchCatalog.morpheRegistrations.single {
@@ -34,59 +42,76 @@ class GboardGeminiTranslationPatchContractTest {
     }
 
     @Test
-    fun manifestContractDeclaresInternetPermissionAndTranslationActivity() {
-        val source = Files.readString(
-            repositoryRoot().resolve(
-                "patches/src/main/kotlin/dev/jason/gboardpatches/patches/gboard/" +
-                    "features/geminitranslation/GboardGeminiTranslationManifestPatch.kt",
-            ),
-            StandardCharsets.UTF_8,
-        )
+    fun manifestOnlyGrantsTheNetworkBecauseTheBarNeverOpensAWindow() {
+        val source = read(patchRoot + "GboardGeminiTranslationManifestPatch.kt")
         assertTrue(source.contains("android.permission.INTERNET"))
-        assertTrue(source.contains("ensureManifestComponent"))
-        assertTrue(source.contains("GboardGeminiTranslationActivity"))
-        assertTrue(source.contains("\"exported\", \"false\""))
-        // The translation box is an Activity, never a background service.
+        assertTrue(source.contains("ensureManifestUsesPermission"))
+        // The bar is part of the keyboard: no Activity, no dialog window, no background service.
+        assertFalse(source.contains("ensureManifestComponent"))
         assertFalse(source.contains("<service"))
+        assertFalse(Files.exists(
+            repositoryRoot().resolve(featureRoot + "GboardGeminiTranslationActivity.java"),
+        ))
     }
 
     @Test
-    fun translationBoxWiresSourceFieldTranslateAndInsertBack() {
-        val activity = Files.readString(
-            repositoryRoot().resolve(
-                "extensions/extension/src/main/java/dev/jason/gboardpatches/extension/" +
-                    "geminitranslation/GboardGeminiTranslationActivity.java",
+    fun lifecycleDelegateHandsTheKeyboardViewToTheBar() {
+        val source = read(patchRoot + "GboardGeminiTranslationLifecyclePatch.kt")
+        assertTrue(source.contains("GEMINI_TRANSLATION_RUNTIME_ON_INPUT_VIEW_STARTING"))
+        assertTrue(source.contains("Lcom/google/android/libraries/inputmethod/inputview/InputView;"))
+        assertTrue(source.contains("iget-object"))
+        assertTrue(source.contains("addHelperMethodIfMissing"))
+        assertTrue(source.contains("Landroid/widget/FrameLayout;"))
+        assertEquals(
+            listOf(
+                "Ljava/lang/Object;",
+                "Ljava/lang/Object;",
+                "Landroid/view/inputmethod/EditorInfo;",
             ),
-            StandardCharsets.UTF_8,
+            RuntimeAbiCatalog.abi(
+                RuntimeCallId.GEMINI_TRANSLATION_RUNTIME_ON_INPUT_VIEW_STARTING,
+            ).parameters,
         )
-        assertTrue(activity.contains("class GboardGeminiTranslationActivity"))
-        assertTrue(activity.contains("new EditText(this)"))
-        assertTrue(activity.contains("GboardGeminiTranslationClient.translate("))
-        assertTrue(activity.contains("GboardGeminiTranslationRuntime.insertTranslation(this"))
-        assertTrue(activity.contains("insertResult()"))
+    }
 
-        val runtime = Files.readString(
-            repositoryRoot().resolve(
-                "extensions/extension/src/main/java/dev/jason/gboardpatches/extension/" +
-                    "geminitranslation/GboardGeminiTranslationRuntime.java",
-            ),
-            StandardCharsets.UTF_8,
-        )
-        assertTrue(runtime.contains("openTranslationBox(Context"))
-        assertTrue(runtime.contains("insertTranslation(Context"))
-        assertTrue(runtime.contains("launchTranslationBoxActivity"))
+    @Test
+    fun translationBarDocksAboveTheKeyboardRows() {
+        val panel = read(featureRoot + "GboardGeminiTranslationPanel.java")
+        assertTrue(panel.contains("class GboardGeminiTranslationPanel"))
+        assertTrue(panel.contains("import android.widget.FrameLayout;"))
+        assertTrue(panel.contains("host.addView(bar, params)"))
+        assertTrue(panel.contains("params.topMargin = -height"))
+        assertTrue(panel.contains("host.setPadding(savedPaddingLeft, savedPaddingTop + height"))
+        assertTrue(panel.contains("syncBarInset"))
+        assertTrue(panel.contains("GboardGeminiTranslationClient.translate("))
+        assertTrue(panel.contains("GboardGeminiTranslationRuntime.commitReplacement("))
+
+        // Docking inside the input window must never rebuild the keyboard or spawn a window.
+        assertFalse(panel.contains("setInputView("))
+        assertFalse(panel.contains("startActivity("))
+        assertFalse(panel.contains("TYPE_APPLICATION_OVERLAY"))
+    }
+
+    @Test
+    fun toolbarTapOpensTheBarAndOnlyFallsBackToInPlaceTranslation() {
+        val runtime = read(featureRoot + "GboardGeminiTranslationRuntime.java")
+        assertTrue(runtime.contains("openTranslationPanel(Context"))
+        assertTrue(runtime.contains("GboardGeminiTranslationPanel.toggle(context)"))
         assertTrue(runtime.contains("translateCurrentInput(context)"))
+        assertTrue(runtime.contains(
+            "onInputViewStarting(Object inputMethodService, Object inputView",
+        ))
+        assertTrue(runtime.contains("rememberInputView(inputView)"))
+
+        // No dialog Activity is launched, and no translation result is parked for a handoff.
+        assertFalse(runtime.contains("GboardGeminiTranslationActivity"))
+        assertFalse(runtime.contains("startActivity("))
+        assertFalse(runtime.contains("insertTranslation("))
     }
 
     @Test
     fun runtimeNeverSendsTheApiKeyInTheQueryString() {
-        val client = Files.readString(
-            repositoryRoot().resolve(
-                "extensions/extension/src/main/java/dev/jason/gboardpatches/extension/" +
-                    "geminitranslation/GboardGeminiTranslationClient.java",
-            ),
-            StandardCharsets.UTF_8,
-        )
+        val client = read(featureRoot + "GboardGeminiTranslationClient.java")
         assertTrue(client.contains("\"x-goog-api-key\""))
         assertFalse(client.contains("?key="))
         assertTrue(client.contains("https://generativelanguage.googleapis.com/v1beta/models/"))
@@ -94,23 +119,14 @@ class GboardGeminiTranslationPatchContractTest {
 
     @Test
     fun settingsScreenOffersAGetApiKeyLink() {
-        val feature = Files.readString(
-            repositoryRoot().resolve(
-                "extensions/extension/src/main/java/dev/jason/gboardpatches/extension/" +
-                    "geminitranslation/GboardGeminiTranslationSettingsFeature.java",
-            ),
-            StandardCharsets.UTF_8,
-        )
+        val feature = read(featureRoot + "GboardGeminiTranslationSettingsFeature.java")
         assertTrue(feature.contains("\"https://aistudio.google.com/apikey\""))
         assertTrue(feature.contains("openExternalUrl(host, GEMINI_API_KEY_URL)"))
         assertTrue(feature.contains(
             "R.string.gboard_patches_gemini_translation_get_api_key_title"))
 
-        val settingsText = Files.readString(
-            repositoryRoot().resolve(
-                "extensions/extension/src/main/settings-text/gboard_settings_text.xml",
-            ),
-            StandardCharsets.UTF_8,
+        val settingsText = read(
+            "extensions/extension/src/main/settings-text/gboard_settings_text.xml",
         )
         assertTrue(settingsText.contains("gboard_patches_gemini_translation_get_api_key_title"))
         assertTrue(settingsText.contains("gboard_patches_gemini_translation_get_api_key_summary"))
@@ -118,16 +134,18 @@ class GboardGeminiTranslationPatchContractTest {
 
     @Test
     fun apiKeyStoreIsNotPartOfBackupAndRestore() {
-        val backupManager = Files.readString(
-            repositoryRoot().resolve(
-                "extensions/extension/src/main/java/dev/jason/gboardpatches/extension/" +
-                    "backuprestore/GboardPatchesBackupManager.java",
-            ),
-            StandardCharsets.UTF_8,
+        val backupManager = read(
+            "extensions/extension/src/main/java/dev/jason/gboardpatches/extension/" +
+                "backuprestore/GboardPatchesBackupManager.java",
         )
         assertFalse(backupManager.contains("gboard_gemini_translation_settings"))
         assertFalse(backupManager.contains("GboardGeminiTranslationSettings"))
     }
+
+    private fun read(relativePath: String): String = Files.readString(
+        repositoryRoot().resolve(relativePath),
+        StandardCharsets.UTF_8,
+    )
 
     private fun repositoryRoot(): Path {
         val workingDirectory = Path.of("").toAbsolutePath().normalize()

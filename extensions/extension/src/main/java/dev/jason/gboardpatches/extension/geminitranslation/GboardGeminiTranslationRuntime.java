@@ -4,11 +4,11 @@ import android.content.ClipData;
 import android.content.ClipboardManager;
 import android.content.Context;
 import android.content.ContextWrapper;
-import android.content.Intent;
 import android.inputmethodservice.InputMethodService;
 import android.os.Handler;
 import android.os.Looper;
 import android.util.Log;
+import android.view.View;
 import android.view.inputmethod.EditorInfo;
 import android.view.inputmethod.ExtractedText;
 import android.view.inputmethod.ExtractedTextRequest;
@@ -24,11 +24,16 @@ import java.util.concurrent.atomic.AtomicBoolean;
 /**
  * Runtime entry points for the Gemini Translation Access Point.
  *
- * <p>Tapping the toolbar icon opens a small translation box whose source field receives the typed
- * text; the Translate button asks Gemini on a background thread and the result can be inserted
- * back into the original text field. The legacy in-place translation (translate the selected
- * text and replace it) is kept as a fallback when the box cannot be shown. Every step fails
- * closed so Gboard's input path is never interrupted.
+ * <p>Tapping the toolbar icon docks {@link GboardGeminiTranslationPanel} inside Gboard's own input
+ * window — a translation bar above the keyboard rows with language chips, the text to translate and
+ * the result, mirroring Google Translate's typing UI while the keyboard stays fully usable. The
+ * latched {@link InputMethodService} and keyboard view make the current {@link InputConnection}
+ * reachable from that bar.
+ *
+ * <p>When the bar cannot be docked (no live keyboard, an unexpected view hierarchy, a missing API
+ * key) the tap falls back to the pre-existing in-place translation, which replaces the selection
+ * or the whole field without ever showing a window. Every step fails closed so Gboard's input path
+ * is never interrupted.
  */
 public final class GboardGeminiTranslationRuntime {
     private static final String TAG = "GboardPatches";
@@ -40,15 +45,7 @@ public final class GboardGeminiTranslationRuntime {
     private static final AtomicBoolean IN_FLIGHT = new AtomicBoolean(false);
     private static volatile WeakReference<InputMethodService> activeInputMethodService =
             new WeakReference<>(null);
-
-    private static final long INSERT_RETRY_INITIAL_DELAY_MS = 250L;
-    private static final long INSERT_RETRY_INTERVAL_MS = 200L;
-    private static final int INSERT_RETRY_ATTEMPTS = 12;
-    private static final Handler MAIN_HANDLER = new Handler(Looper.getMainLooper());
-
-    private static volatile Selection pendingInsertSelection;
-    private static volatile String pendingInsertText;
-    private static volatile WeakReference<Context> pendingInsertContext = new WeakReference<>(null);
+    private static volatile WeakReference<View> activeInputView = new WeakReference<>(null);
 
     private GboardGeminiTranslationRuntime() {
     }
@@ -61,9 +58,18 @@ public final class GboardGeminiTranslationRuntime {
         }
     }
 
-    /** Lifecycle delegate injected at the top of Gboard's {@code onStartInputView}. */
-    public static void onInputViewStarting(Object inputMethodService, EditorInfo editorInfo) {
+    /**
+     * Lifecycle delegate injected at the top of Gboard's {@code onStartInputView}.
+     *
+     * <p>{@code inputView} is Gboard's own input view, handed over by the delegate so the bar can
+     * dock into the frame that hosts it without reflecting into framework internals.
+     */
+    public static void onInputViewStarting(Object inputMethodService, Object inputView,
+            EditorInfo editorInfo) {
         rememberInputMethodService(inputMethodService);
+        rememberInputView(inputView);
+        GboardGeminiTranslationPanel.onInputViewStarted(inputMethodService,
+                inputView instanceof View view ? view : null, editorInfo);
     }
 
     /** Remembers the live IME so toolbar taps can reach the current {@link InputConnection}. */
@@ -78,7 +84,62 @@ public final class GboardGeminiTranslationRuntime {
         }
     }
 
-    /** Legacy in-place translation, used as a fallback when the box cannot be opened. */
+    /** Remembers Gboard's input view, which is where the translation bar docks. */
+    public static void rememberInputView(Object candidate) {
+        try {
+            if (candidate instanceof View view) {
+                activeInputView = new WeakReference<>(view);
+            }
+        } catch (Throwable ignored) {
+            // Latching the keyboard view is best effort only.
+        }
+    }
+
+    static InputMethodService activeInputMethodService() {
+        return activeInputMethodService.get();
+    }
+
+    static View activeInputView() {
+        return activeInputView.get();
+    }
+
+    /**
+     * Opens or closes the translation bar for the toolbar icon.
+     *
+     * <p>Docking the bar never fails visibly: when there is no live keyboard to dock into, or when
+     * its view hierarchy is not the expected one, the tap falls back to translating the selection
+     * in place.
+     *
+     * @return {@code false} only when the feature is switched off, so the tap is swallowed
+     */
+    public static boolean openTranslationPanel(Context context) {
+        try {
+            rememberInputMethodService(context);
+            GboardGeminiTranslationSettings.Snapshot settings =
+                    GboardGeminiTranslationSettings.read(context);
+            if (!settings.isEnabled()) {
+                return false;
+            }
+            if (!settings.hasApiKey()) {
+                showToast(context, "សូមដាក់គ្រាប់សម្ងាត់ Gemini API ក្នុងការកំណត់ Patches"
+                                + " ជាមុនសិន",
+                        "請先在 Patches 設定輸入 Gemini API 金鑰",
+                        "Set your Gemini API key in Patches settings first");
+                return true;
+            }
+            if (GboardGeminiTranslationPanel.toggle(context)) {
+                return true;
+            }
+            translateCurrentInput(context);
+            return true;
+        } catch (Throwable failure) {
+            logFailure("Opening the Gemini translation bar failed", failure);
+            translateCurrentInput(context);
+            return true;
+        }
+    }
+
+    /** In-place translation of the selection or the whole field, used when there is no bar. */
     public static void translateCurrentInput(Context context) {
         try {
             rememberInputMethodService(context);
@@ -88,7 +149,9 @@ public final class GboardGeminiTranslationRuntime {
                 return;
             }
             if (!settings.hasApiKey()) {
-                showToast(context, "請先在 Patches 設定輸入 Gemini API 金鑰",
+                showToast(context, "សូមដាក់គ្រាប់សម្ងាត់ Gemini API ក្នុងការកំណត់ Patches"
+                                + " ជាមុនសិន",
+                        "請先在 Patches 設定輸入 Gemini API 金鑰",
                         "Set your Gemini API key in Patches settings first");
                 return;
             }
@@ -97,19 +160,21 @@ public final class GboardGeminiTranslationRuntime {
                     ? null
                     : service.getCurrentInputConnection();
             if (connection == null) {
-                showToast(context, "目前沒有可翻譯的輸入框", "No text field to translate");
+                showToast(context, "មិនមានប្រអប់បញ្ចូលអត្ថបទសម្រាប់បកប្រែទេ", "目前沒有可翻譯的輸入框",
+                        "No text field to translate");
                 return;
             }
             Selection selection = readSelection(connection);
             if (selection == null || selection.text.trim().isEmpty()) {
-                showToast(context, "沒有可翻譯的文字", "Nothing to translate");
+                showToast(context, "គ្មានអត្ថបទសម្រាប់បកប្រែ", "沒有可翻譯的文字", "Nothing to translate");
                 return;
             }
             if (!IN_FLIGHT.compareAndSet(false, true)) {
-                showToast(context, "翻譯進行中…", "Translation already in progress…");
+                showToast(context, "ការបកប្រែកំពុងដំណើរការ…", "翻譯進行中…",
+                        "Translation already in progress…");
                 return;
             }
-            showToast(context, "Gemini 翻譯中…", "Translating with Gemini…");
+            showToast(context, "កំពុងបកប្រែដោយ Gemini…", "Gemini 翻譯中…", "Translating with Gemini…");
             Context application = context.getApplicationContext();
             Context safeContext = application != null ? application : context;
             WeakReference<InputMethodService> serviceReference = new WeakReference<>(service);
@@ -118,148 +183,8 @@ public final class GboardGeminiTranslationRuntime {
         } catch (Throwable failure) {
             IN_FLIGHT.set(false);
             logFailure("Gemini translation launch failed", failure);
-            showToast(context, "無法啟動 Gemini 翻譯", "Unable to start Gemini translation");
-        }
-    }
-
-    /**
-     * Opens the small translation box for the toolbar icon.
-     *
-     * <p>The box mirrors Google Translate's typing UI: a source field at the top receives the
-     * typed text, a Translate button asks Gemini for the result, and the translation can be
-     * inserted back into the original text field. The pre-existing in-place translation is kept
-     * as a fallback for the rare case the box cannot be shown.
-     */
-    public static void openTranslationBox(Context context) {
-        try {
-            rememberInputMethodService(context);
-            GboardGeminiTranslationSettings.Snapshot settings =
-                    GboardGeminiTranslationSettings.read(context);
-            if (!settings.isEnabled()) {
-                return;
-            }
-            if (!settings.hasApiKey()) {
-                showToast(context, "請先在 Patches 設定輸入 Gemini API 金鑰",
-                        "Set your Gemini API key in Patches settings first");
-                return;
-            }
-            InputMethodService service = activeInputMethodService.get();
-            InputConnection connection = service == null
-                    ? null
-                    : service.getCurrentInputConnection();
-            pendingInsertSelection = connection == null ? null : readSelection(connection);
-            String initialText = pendingInsertSelection == null
-                    ? ""
-                    : pendingInsertSelection.text;
-            if (launchTranslationBoxActivity(context, initialText)) {
-                return;
-            }
-            translateCurrentInput(context);
-        } catch (Throwable failure) {
-            logFailure("Opening the Gemini translation box failed", failure);
-            translateCurrentInput(context);
-        }
-    }
-
-    private static boolean launchTranslationBoxActivity(Context context, String initialText) {
-        try {
-            Intent intent = new Intent(context, GboardGeminiTranslationActivity.class);
-            intent.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK | Intent.FLAG_ACTIVITY_NO_ANIMATION);
-            intent.putExtra(GboardGeminiTranslationActivity.EXTRA_INITIAL_TEXT, initialText);
-            context.startActivity(intent);
-            return true;
-        } catch (Throwable failure) {
-            logFailure("Unable to launch the Gemini translation box", failure);
-            return false;
-        }
-    }
-
-    /**
-     * Commits the translation back into the original text field.
-     *
-     * <p>The box Activity hands control here before finishing, so the first attempt is delayed to
-     * let the Activity finish and Gboard reconnect to the original field; the write is retried for
-     * a short window and falls back to the clipboard when the field cannot be reached anymore.
-     */
-    public static void insertTranslation(Context context, String translated) {
-        try {
-            if (context == null || translated == null || translated.trim().isEmpty()) {
-                return;
-            }
-            Selection selection = pendingInsertSelection;
-            if (selection == null) {
-                copyToClipboard(context, translated);
-                showToast(context, "找不到原始輸入框，已複製到剪貼簿",
-                        "Original text field not found; copied to clipboard");
-                return;
-            }
-            pendingInsertContext = new WeakReference<>(
-                    context.getApplicationContext() != null
-                            ? context.getApplicationContext()
-                            : context);
-            pendingInsertText = translated;
-            scheduleInsertionAttempt(0);
-        } catch (Throwable failure) {
-            logFailure("Scheduling the translation insertion failed", failure);
-        }
-    }
-
-    private static void scheduleInsertionAttempt(int attempt) {
-        long delay = attempt == 0 ? INSERT_RETRY_INITIAL_DELAY_MS : INSERT_RETRY_INTERVAL_MS;
-        MAIN_HANDLER.postDelayed(() -> attemptInsertion(attempt), delay);
-    }
-
-    private static void attemptInsertion(int attempt) {
-        try {
-            Selection selection = pendingInsertSelection;
-            String text = pendingInsertText;
-            if (selection == null || text == null) {
-                return;
-            }
-            InputMethodService service = activeInputMethodService.get();
-            InputConnection connection = service == null
-                    ? null
-                    : service.getCurrentInputConnection();
-            if (connection != null && commitReplacement(connection, selection, text)) {
-                pendingInsertSelection = null;
-                pendingInsertText = null;
-                pendingInsertContext = new WeakReference<>(null);
-                return;
-            }
-            if (attempt + 1 >= INSERT_RETRY_ATTEMPTS) {
-                pendingInsertSelection = null;
-                String fallback = pendingInsertText;
-                pendingInsertText = null;
-                Context context = pendingInsertContext.get();
-                pendingInsertContext = new WeakReference<>(null);
-                if (context != null && fallback != null) {
-                    copyToClipboard(context, fallback);
-                    showToast(context, "無法自動插入，已複製到剪貼簿",
-                            "Could not insert; copied to clipboard");
-                }
-                return;
-            }
-            scheduleInsertionAttempt(attempt + 1);
-        } catch (Throwable failure) {
-            logFailure("Translation insertion attempt failed", failure);
-            if (attempt + 1 < INSERT_RETRY_ATTEMPTS) {
-                scheduleInsertionAttempt(attempt + 1);
-            }
-        }
-    }
-
-    static void copyToClipboard(Context context, String text) {
-        try {
-            if (context == null || text == null) {
-                return;
-            }
-            ClipboardManager manager =
-                    (ClipboardManager) context.getSystemService(Context.CLIPBOARD_SERVICE);
-            if (manager != null) {
-                manager.setPrimaryClip(ClipData.newPlainText("translation", text));
-            }
-        } catch (Throwable ignored) {
-            // Clipboard fallback cannot affect the insertion path.
+            showToast(context, "មិនអាចចាប់ផ្តើមការបកប្រែ Gemini បានទេ", "無法啟動 Gemini 翻譯",
+                    "Unable to start Gemini translation");
         }
     }
 
@@ -280,7 +205,9 @@ public final class GboardGeminiTranslationRuntime {
         new Handler(Looper.getMainLooper()).post(() -> {
             try {
                 if (!finalResult.isSuccess()) {
-                    showToast(context, "Gemini 翻譯失敗：" + finalResult.getErrorMessage(),
+                    showToast(context, "ការបកប្រែរបស់ Gemini បានបរាជ័យ៖ "
+                                    + finalResult.getErrorMessage(),
+                            "Gemini 翻譯失敗：" + finalResult.getErrorMessage(),
                             "Gemini translation failed: " + finalResult.getErrorMessage());
                     return;
                 }
@@ -290,7 +217,8 @@ public final class GboardGeminiTranslationRuntime {
                         : service.getCurrentInputConnection();
                 if (connection == null || !commitReplacement(connection, selection,
                         finalResult.getText())) {
-                    showToast(context, "無法寫入翻譯結果", "Unable to insert translation");
+                    showToast(context, "មិនអាចសរសេរលទ្ធផលបកប្រែបានទេ", "無法寫入翻譯結果",
+                            "Unable to insert translation");
                 }
             } catch (Throwable failure) {
                 logFailure("Gemini translation commit failed", failure);
@@ -354,6 +282,21 @@ public final class GboardGeminiTranslationRuntime {
         }
     }
 
+    static void copyToClipboard(Context context, String text) {
+        try {
+            if (context == null || text == null) {
+                return;
+            }
+            ClipboardManager manager =
+                    (ClipboardManager) context.getSystemService(Context.CLIPBOARD_SERVICE);
+            if (manager != null) {
+                manager.setPrimaryClip(ClipData.newPlainText("translation", text));
+            }
+        } catch (Throwable ignored) {
+            // The clipboard fallback cannot affect the insertion path.
+        }
+    }
+
     static InputMethodService unwrapInputMethodService(Object candidate) {
         Object current = candidate;
         int depth = 0;
@@ -374,13 +317,16 @@ public final class GboardGeminiTranslationRuntime {
         return null;
     }
 
-    static void showToast(Context context, String chinese, String english) {
+    /** Khmer, Chinese and English message; the keyboard UI language decides which one is shown. */
+    static void showToast(Context context, String khmer, String chinese, String english) {
         try {
             if (context == null) {
                 return;
             }
             String language = Locale.getDefault().getLanguage();
-            String message = "zh".equalsIgnoreCase(language) ? chinese : english;
+            String message = "km".equalsIgnoreCase(language)
+                    ? khmer
+                    : "zh".equalsIgnoreCase(language) ? chinese : english;
             Runnable show = () -> Toast.makeText(context, message, Toast.LENGTH_SHORT).show();
             if (Looper.myLooper() == Looper.getMainLooper()) {
                 show.run();

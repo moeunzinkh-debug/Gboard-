@@ -4,6 +4,24 @@ All notable changes to **Gboard Patches (moeunzinkh)** are documented here.
 This source starts its own version line at 1.0.0; the inherited 3.x history lives in
 [docs/upstream-changelog.md](docs/upstream-changelog.md).
 
+## [Unreleased]
+
+### ✨ Fixes
+
+* **Gboard — Gemini Translation:** the toolbar button no longer opens a full-screen dialog that
+  covers the app and hides the keyboard. It now docks a Google Translate style bar inside Gboard's
+  own input window: back button, source and target language chips (tap to pick, ⇄ to swap, both
+  saved back into Patches settings), the text to translate and the result, with ↻ to translate,
+  ✓ to write the translation into the field and a copy button. The keyboard stays fully usable
+  below the bar; when there is no live keyboard to dock into, the tap still translates in place.
+
+### ✨ 修正
+
+* **Gboard — Gemini Translation:** 點工具列按鈕不再跳出蓋住畫面、讓鍵盤消失的全螢幕對話框；
+  現在會直接停靠在 Gboard 鍵盤視窗內，鍵盤上方出現翻譯列（返回鍵、來源／目標語言 chip、
+  ⇄ 交換、原文與結果），↻ 翻譯、✓ 寫回輸入框、另有複製按鈕，鍵盤可照常使用；
+  若當下沒有可停靠的鍵盤，則退回原本的選取文字就地翻譯。
+
 ## [1.0.0](https://github.com/moeunzinkh-debug/Gboard-/releases/tag/v1.0.0) (2026-09-14)
 
 ### ✨ Highlights

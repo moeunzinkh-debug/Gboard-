@@ -2983,16 +2983,16 @@
         <translation locale="zh-Hant">Gemini 翻譯</translation>
     </string>
     <string name="gboard_patches_gemini_translation_summary">
-        <translation locale="en">Translate the selected text or the whole text field with the Gemini API from an Access Point toolbar button. Your API key is stored only on this device.</translation>
-        <translation locale="zh-Hant">透過 Access Point 工具列按鈕，使用 Gemini API 翻譯選取文字或整個輸入框。API 金鑰只會儲存在此裝置。</translation>
+        <translation locale="en">Tap the Access Point toolbar button to dock a translate bar right above the keyboard: pick the languages, translate the selection or the whole text field with the Gemini API, then insert the result. Your API key is stored only on this device.</translation>
+        <translation locale="zh-Hant">點一下 Access Point 工具列按鈕，鍵盤上方會停靠一個翻譯列：選擇語言、以 Gemini API 翻譯選取文字或整個輸入框，再把結果插入原處。API 金鑰只會儲存在此裝置。</translation>
     </string>
     <string name="gboard_patches_gemini_translation_enable_title">
         <translation locale="en">Enable Gemini Translation</translation>
         <translation locale="zh-Hant">啟用 Gemini 翻譯</translation>
     </string>
     <string name="gboard_patches_gemini_translation_enable_summary">
-        <translation locale="en">Adds a Translate button to the Access Point toolbar. Force-stop and restart Gboard for changes to take effect.</translation>
-        <translation locale="zh-Hant">在 Access Point 工具列新增翻譯按鈕。強制停止並重新啟動 Gboard 後生效。</translation>
+        <translation locale="en">Adds a Translate button to the Access Point toolbar; the bar docks inside the keyboard instead of opening a separate window. Force-stop and restart Gboard for changes to take effect.</translation>
+        <translation locale="zh-Hant">在 Access Point 工具列新增翻譯按鈕，翻譯列直接停靠在同一個鍵盤內，不會另開視窗。強制停止並重新啟動 Gboard 後生效。</translation>
     </string>
     <string name="gboard_patches_gemini_translation_section_feature">
         <translation locale="en">Feature</translation>
