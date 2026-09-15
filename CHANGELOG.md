@@ -14,6 +14,11 @@ This source starts its own version line at 1.0.0; the inherited 3.x history live
   saved back into Patches settings), the text to translate and the result, with ↻ to translate,
   ✓ to write the translation into the field and a copy button. The keyboard stays fully usable
   below the bar; when there is no live keyboard to dock into, the tap still translates in place.
+* **Gboard — Gemini Translation:** fixed a patch-time crash (`Collection is empty`) that aborted
+  the whole session on some APK/patcher combinations. The one-line `onStartInputView` entry call
+  is validated against the expected 18.0.3 method shape and encoded directly instead of going
+  through smali compilation, so patching succeeds wherever the method is intact — and names the
+  actual mismatch when the APK really differs.
 
 ### ✨ 修正
 
@@ -21,6 +26,10 @@ This source starts its own version line at 1.0.0; the inherited 3.x history live
   現在會直接停靠在 Gboard 鍵盤視窗內，鍵盤上方出現翻譯列（返回鍵、來源／目標語言 chip、
   ⇄ 交換、原文與結果），↻ 翻譯、✓ 寫回輸入框、另有複製按鈕，鍵盤可照常使用；
   若當下沒有可停靠的鍵盤，則退回原本的選取文字就地翻譯。
+* **Gboard — Gemini Translation:** 修正在某些 APK／patcher 組合下 patch 階段因
+  `Collection is empty` 導致整個 session 中斷的問題；`onStartInputView` 單行進入點改為先驗證
+  18.0.3 方法形狀再直接編碼呼叫，不再經過 smali 編譯。方法完好即可成功打入；
+  APK 真的不符時也會明確回報差異內容。
 
 ## [1.0.0](https://github.com/moeunzinkh-debug/Gboard-/releases/tag/v1.0.0) (2026-09-14)
 
