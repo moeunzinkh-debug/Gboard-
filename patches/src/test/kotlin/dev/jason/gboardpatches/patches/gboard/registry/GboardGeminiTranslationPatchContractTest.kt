@@ -75,6 +75,19 @@ class GboardGeminiTranslationPatchContractTest {
     }
 
     @Test
+    fun lifecycleEntryDelegateAvoidsInlineSmaliCompilation() {
+        val source = read(patchRoot + "GboardGeminiTranslationLifecyclePatch.kt")
+        // The one-line entry call must be built programmatically: compiling its smali text
+        // against some APK/patcher combinations silently yields zero methods and aborts the
+        // whole session with "Collection is empty."
+        assertTrue(source.contains("BuilderInstruction35c"))
+        assertTrue(source.contains("BuilderInstruction3rc"))
+        assertTrue(source.contains("ImmutableMethodReference"))
+        assertTrue(source.contains("registerCount >= parameterWords"))
+        assertFalse(source.contains("invoke-direct {p0, p1}"))
+    }
+
+    @Test
     fun translationBarDocksAboveTheKeyboardRows() {
         val panel = read(featureRoot + "GboardGeminiTranslationPanel.java")
         assertTrue(panel.contains("class GboardGeminiTranslationPanel"))
