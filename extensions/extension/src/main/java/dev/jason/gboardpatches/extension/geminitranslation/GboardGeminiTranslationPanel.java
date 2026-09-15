@@ -211,7 +211,6 @@ public final class GboardGeminiTranslationPanel {
                 ViewGroup.LayoutParams.WRAP_CONTENT, ViewGroup.LayoutParams.WRAP_CONTENT));
         languagePicker.setVisibility(View.GONE);
         LinearLayout.LayoutParams pickerParams = rowParams();
-        pickerParams.topMargin = dp(BAR_MARGIN_DP);
         bar.addView(languagePicker, pickerParams);
     }
 
@@ -329,11 +328,11 @@ public final class GboardGeminiTranslationPanel {
             return false;
         }
         barInset = height;
-        FrameLayout.LayoutParams params = new FrameLayout.LayoutParams(
-                ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.WRAP_CONTENT,
-                Gravity.TOP);
         // The bar lives inside the extra top padding it asked the host for, and the keyboard rows
-        // start right below it.
+        // start right below it. The height is pinned to what was measured once, so a squeezed
+        // window can never shrink the bar, shrink the padding and then let it grow again.
+        FrameLayout.LayoutParams params = new FrameLayout.LayoutParams(
+                ViewGroup.LayoutParams.MATCH_PARENT, height, Gravity.TOP);
         params.topMargin = -height;
         host.setPadding(savedPaddingLeft, savedPaddingTop + height, savedPaddingRight,
                 savedPaddingBottom);
@@ -416,6 +415,7 @@ public final class GboardGeminiTranslationPanel {
         }
         barInset = height;
         if (bar.getLayoutParams() instanceof FrameLayout.LayoutParams params) {
+            params.height = height;
             params.topMargin = -height;
             params.gravity = Gravity.TOP;
             bar.setLayoutParams(params);
