@@ -88,18 +88,28 @@ class GboardGeminiTranslationPatchContractTest {
     }
 
     @Test
-    fun translationBarDocksAboveTheKeyboardRows() {
+    fun translationBarDocksInsideTheKeyboardAboveTheRows() {
         val panel = read(featureRoot + "GboardGeminiTranslationPanel.java")
         assertTrue(panel.contains("class GboardGeminiTranslationPanel"))
         assertTrue(panel.contains("import android.widget.FrameLayout;"))
         assertTrue(panel.contains("host.addView(bar, params)"))
-        assertTrue(panel.contains("params.topMargin = -height"))
-        assertTrue(panel.contains("host.setPadding(savedPaddingLeft, savedPaddingTop + height"))
-        assertTrue(panel.contains("syncBarInset"))
+        // The bar docks into Gboard's own input view (a FrameLayout), floating above the
+        // keyboard rows with elevation — the placement the calculator strip already uses,
+        // because asking the inputArea frame for extra padding left the bar invisible when
+        // the IME window refused to grow.
+        assertTrue(panel.contains("findKeyboardPanelTop"))
+        assertTrue(panel.contains("params.topMargin = topMargin"))
+        assertTrue(panel.contains("setElevation"))
+        // A stale or missing latched input view must not make the bar unreachable.
+        assertTrue(panel.contains("resolveInputViewFromWindow"))
         assertTrue(panel.contains("GboardGeminiTranslationClient.translate("))
         assertTrue(panel.contains("GboardGeminiTranslationRuntime.commitReplacement("))
+        // The Google Translate layout: language chips with swap, a source card, a result card.
+        assertTrue(panel.contains("swapLanguages()"))
+        assertTrue(panel.contains("sourceCard"))
+        assertTrue(panel.contains("resultCard"))
 
-        // Docking inside the input window must never rebuild the keyboard or spawn a window.
+        // Docking inside the input view must never rebuild the keyboard or spawn a window.
         assertFalse(panel.contains("setInputView("))
         assertFalse(panel.contains("startActivity("))
         assertFalse(panel.contains("TYPE_APPLICATION_OVERLAY"))
@@ -115,6 +125,14 @@ class GboardGeminiTranslationPatchContractTest {
             "onInputViewStarting(Object inputMethodService, Object inputView",
         ))
         assertTrue(runtime.contains("rememberInputView(inputView)"))
+
+        // The bar must open before anything else can veto it: a tap without an API key still
+        // shows the Google Translate panel, which explains inline what is missing.
+        val openMethod = runtime.substringAfter("public static boolean openTranslationPanel")
+        val toggleIndex = openMethod.indexOf("GboardGeminiTranslationPanel.toggle(context)")
+        val fallbackIndex = openMethod.indexOf("translateCurrentInput(context)")
+        assertTrue(toggleIndex >= 0 && fallbackIndex > toggleIndex)
+        assertFalse(openMethod.substring(0, toggleIndex).contains("hasApiKey()"))
 
         // No dialog Activity is launched, and no translation result is parked for a handoff.
         assertFalse(runtime.contains("GboardGeminiTranslationActivity"))
