@@ -3,6 +3,7 @@ package dev.jason.gboardpatches.extension.geminitranslation;
 import android.content.Context;
 import android.content.res.Configuration;
 import android.graphics.Color;
+import android.graphics.drawable.ColorDrawable;
 import android.graphics.drawable.GradientDrawable;
 import android.inputmethodservice.InputMethodService;
 import android.os.Handler;
@@ -101,6 +102,7 @@ public final class GboardGeminiTranslationPanel {
     private final TextView actionButton;
     private final LinearLayout languagePickerRow;
     private final HorizontalScrollView languagePicker;
+    private final LinearLayout languageRow;
 
     private final int savedPaddingLeft;
     private final int savedPaddingTop;
@@ -125,7 +127,7 @@ public final class GboardGeminiTranslationPanel {
     private GboardGeminiTranslationPanel(InputMethodService service, FrameLayout host) {
         this.service = service;
         this.host = host;
-        this.palette = Palette.from(host.getContext());
+        this.palette = Palette.forKeyboard(host.getContext(), keyboardBackgroundColour(host));
         this.savedPaddingLeft = host.getPaddingLeft();
         this.savedPaddingTop = host.getPaddingTop();
         this.savedPaddingRight = host.getPaddingRight();
@@ -139,27 +141,27 @@ public final class GboardGeminiTranslationPanel {
                 dp(BAR_PADDING_DP));
         bar.setBackground(rounded(palette.surface, dp(18), Color.TRANSPARENT));
 
-        LinearLayout languages = new LinearLayout(context);
-        languages.setOrientation(LinearLayout.HORIZONTAL);
-        languages.setGravity(Gravity.CENTER_VERTICAL);
+        languageRow = new LinearLayout(context);
+        languageRow.setOrientation(LinearLayout.HORIZONTAL);
+        languageRow.setGravity(Gravity.CENTER_VERTICAL);
 
         TextView close = control("←", label("បិទរបារបកប្រែ", "關閉翻譯列",
                 "Close the translation bar"));
         close.setOnClickListener(view -> detach());
-        languages.addView(close, controlParams());
+        languageRow.addView(close, controlParams());
 
         sourceChip = chip(label("ភាសាដើម", "來源語言", "Source language"));
         sourceChip.setOnClickListener(view -> openLanguagePicker(false));
-        languages.addView(sourceChip, chipParams(dp(BAR_MARGIN_DP)));
+        languageRow.addView(sourceChip, chipParams(dp(BAR_MARGIN_DP)));
 
         TextView swap = control("⇄", label("ប្ដូរភាសា", "交換語言", "Swap languages"));
         swap.setOnClickListener(view -> swapLanguages());
-        languages.addView(swap, controlParams());
+        languageRow.addView(swap, controlParams());
 
         targetChip = chip(label("ភាសាគោលដៅ", "目標語言", "Target language"));
         targetChip.setOnClickListener(view -> openLanguagePicker(true));
-        languages.addView(targetChip, chipParams(dp(BAR_MARGIN_DP)));
-        bar.addView(languages, rowParams());
+        languageRow.addView(targetChip, chipParams(dp(BAR_MARGIN_DP)));
+        bar.addView(languageRow, rowParams());
 
         LinearLayout content = new LinearLayout(context);
         content.setOrientation(LinearLayout.HORIZONTAL);
@@ -336,6 +338,7 @@ public final class GboardGeminiTranslationPanel {
         host.setPadding(savedPaddingLeft, savedPaddingTop + height, savedPaddingRight,
                 savedPaddingBottom);
         host.addView(bar, params);
+        bar.bringToFront();
         bar.addOnLayoutChangeListener(heightWatcher);
         EditorInfo editorInfo = safeCurrentEditorInfo();
         editorPackage = editorInfo == null ? null : editorInfo.packageName;
@@ -364,6 +367,24 @@ public final class GboardGeminiTranslationPanel {
                 active = null;
             }
         }
+    }
+
+    /** The solid colour the keyboard paints with, when it uses one at all. */
+    private static Integer keyboardBackgroundColour(FrameLayout host) {
+        try {
+            for (int index = host.getChildCount() - 1; index >= 0; index--) {
+                View child = host.getChildAt(index);
+                if (child == null || PANEL_TAG.equals(child.getTag())) {
+                    continue;
+                }
+                if (child.getBackground() instanceof ColorDrawable background) {
+                    return background.getColor();
+                }
+            }
+        } catch (Throwable ignored) {
+            // Fall back to the theme palette below.
+        }
+        return null;
     }
 
     private EditorInfo safeCurrentEditorInfo() {
@@ -530,6 +551,7 @@ public final class GboardGeminiTranslationPanel {
             return;
         }
         pickerForTarget = forTarget;
+        languageRow.setVisibility(View.GONE);
         languagePickerRow.removeAllViews();
         if (!forTarget) {
             addLanguageChip("", label("ស្វ័យបរវត្តិ", "自動偵測", "Auto detect"));
@@ -561,6 +583,7 @@ public final class GboardGeminiTranslationPanel {
 
     private void closeLanguagePicker() {
         languagePicker.setVisibility(View.GONE);
+        languageRow.setVisibility(View.VISIBLE);
         languagePickerRow.removeAllViews();
     }
 
@@ -814,6 +837,7 @@ public final class GboardGeminiTranslationPanel {
         return "zh".equalsIgnoreCase(language) ? chinese : english;
     }
 
+    /** Bar colours; the keyboard's own background wins so themes keep matching. */
     private static final class Palette {
         private final int surface;
         private final int field;
@@ -827,13 +851,38 @@ public final class GboardGeminiTranslationPanel {
             this.accent = accent;
         }
 
-        static Palette from(Context context) {
+        static Palette forKeyboard(Context context, Integer keyboardColour) {
+            if (keyboardColour != null) {
+                boolean dark = isDark(keyboardColour);
+                return new Palette(keyboardColour,
+                        tint(keyboardColour, dark ? 0.12f : -0.06f),
+                        dark ? Color.WHITE : 0xff202124,
+                        dark ? 0xff8ab4f8 : 0xff1a73e8);
+            }
             boolean dark = context != null
                     && (context.getResources().getConfiguration().uiMode
                     & Configuration.UI_MODE_NIGHT_MASK) == Configuration.UI_MODE_NIGHT_YES;
             return dark
                     ? new Palette(0xff202124, 0xff3c4043, Color.WHITE, 0xff8ab4f8)
                     : new Palette(0xfff8f9fa, 0xffe8eaed, 0xff202124, 0xff1a73e8);
+        }
+
+        /** Lightens a colour when {@code amount} is positive, darkens it when negative. */
+        private static int tint(int colour, float amount) {
+            float factor = 1f + amount;
+            int red = clampChannel(Math.round(Color.red(colour) * factor));
+            int green = clampChannel(Math.round(Color.green(colour) * factor));
+            int blue = clampChannel(Math.round(Color.blue(colour) * factor));
+            return Color.argb(Color.alpha(colour), red, green, blue);
+        }
+
+        private static int clampChannel(int value) {
+            return value < 0 ? 0 : Math.min(value, 255);
+        }
+
+        private static boolean isDark(int colour) {
+            return 0.299f * Color.red(colour) + 0.587f * Color.green(colour)
+                    + 0.114f * Color.blue(colour) < 140f;
         }
     }
 }
