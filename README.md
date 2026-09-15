@@ -1,7 +1,7 @@
 # Gboard Patches (moeunzinkh)
 
 A Morphe patch source for Gboard, maintained and published independently from this repository.
-**41 patches**, version **1.0.0** — every file a Morphe client needs is served from
+**41 patches**, version **1.0.1** — every file a Morphe client needs is served from
 `github.com/moeunzinkh-debug/Gboard-`, not from any other project.
 
 Version numbering for this source starts at **1.0.0** and does not continue the inherited `3.x`
@@ -13,7 +13,7 @@ line; that history is preserved in [docs/upstream-changelog.md](docs/upstream-ch
    <https://morphe.software/add-source?github=moeunzinkh-debug/Gboard->
 2. Or do it by hand: **Sources → `+` → Remote**, paste `https://github.com/moeunzinkh-debug/Gboard-`,
    press **Add**.
-3. A healthy install shows **Patches 41** and **Version v1.0.0** on the source card.
+3. A healthy install shows **Patches 41** and **Version v1.0.1** on the source card.
 
 The manager never inspects the repository's code. It reads exactly two things from the `main`
 branch of this repo:
@@ -23,7 +23,7 @@ branch of this repo:
 | `patches-bundle.json` | declares `version`, `created_at`, release notes (`description`) and `download_url` |
 | `patches-<version>.mpp` (release asset) | the actual bundle: patch dex, extension dex and resources |
 
-So a GitHub Release carrying `patches-1.0.0.mpp` must exist before the source can be added.
+So a GitHub Release carrying `patches-<version>.mpp` must exist before the source can be added.
 The full requirement list is documented in [docs/morphe-source-setup.md](docs/morphe-source-setup.md).
 
 ## Patches
