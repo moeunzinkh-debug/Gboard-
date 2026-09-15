@@ -6,6 +6,8 @@ This source starts its own version line at 1.0.0; the inherited 3.x history live
 
 ## [Unreleased]
 
+## [1.0.1](https://github.com/moeunzinkh-debug/Gboard-/releases/tag/v1.0.1) (2026-09-15)
+
 ### ✨ Fixes
 
 * **Gboard — Gemini Translation:** the toolbar button no longer opens a full-screen dialog that
@@ -30,6 +32,15 @@ This source starts its own version line at 1.0.0; the inherited 3.x history live
   `Collection is empty` 導致整個 session 中斷的問題；`onStartInputView` 單行進入點改為先驗證
   18.0.3 方法形狀再直接編碼呼叫，不再經過 smali 編譯。方法完好即可成功打入；
   APK 真的不符時也會明確回報差異內容。
+
+### ✨ ការកែសម្រួល (ភាសាខ្មែរ)
+
+* **Gboard — Gemini Translation:** បានកែកំហុស `Collection is empty` ដែលធ្វើឱ្យដំណើរការ
+  patch ទាំងមូលបរាជ័យនៅពេលអនុវត្តលើការបញ្ចូលគ្នាខ្លះនៃ APK/patcher។ ឥឡូវនេះ
+  ការហៅចូល `onStartInputView` ត្រូវបានផ្ទៀងផ្ទាត់ជាមុន ហើយសរសេរជា instruction
+  ដោយផ្ទាល់ ដោយមិនឆ្លងកាត់ការចម្លង smali ទៀតទេ — ដូច្នេះការ patch ទៅជាជោគជ័យ។
+* **Gboard — Gemini Translation:** ប៊ូតុងបកប្រែលើរបារឧបករណ៍ លែងបើកផ្ទាំងពេញអេក្រង់
+  ដែលបិទក្ដារចុចទៀតហើយ; វាដាក់របារបកប្រែនៅក្នុងបង្អួចក្ដារចុចរបស់ Gboard ផ្ទាល់។
 
 ## [1.0.0](https://github.com/moeunzinkh-debug/Gboard-/releases/tag/v1.0.0) (2026-09-14)
 
