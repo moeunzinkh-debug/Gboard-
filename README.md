@@ -54,7 +54,7 @@ Target: `com.google.android.inputmethod.latin`, Gboard version(s) currently decl
 | Floating Web Search | 直接從 Gboard 開啟懸浮網頁，快速搜尋需要的資訊。 |
 | FTP Server | 新增區域網路 FTP 伺服器，支援檔案瀏覽、傳輸與下載續傳 |
 | G Logo on Spacebar | 在空白鍵顯示 G Logo，並隱藏語言名稱 |
-| Gemini Translation | 在 Access Point 工具列新增 Gemini 翻譯按鈕，自動偵測語言並以 Gemini API 翻譯選取文字或整個輸入框；API 金鑰可在 Patches 設定中儲存。 |
+| Gemini Translation | 在 Access Point 工具列新增 Gemini 翻譯按鈕，直接在鍵盤上方停靠翻譯列：來源／目標語言、交換、原文與結果都在鍵盤內完成，不會跳出全螢幕視窗；API 金鑰可在 Patches 設定中儲存。 |
 | Grammar Checker | 啟用 修正和建議 > 文法檢查 |
 | Hyperspeed Typing Animation | 持續快速輸入時顯示動畫，並支援所有鍵盤 |
 | Incognito Mode Toggle | 在 Access Point 工具列新增無痕模式切換按鈕，並可設定無痕模式下是否啟用剪貼簿與語音輸入 |

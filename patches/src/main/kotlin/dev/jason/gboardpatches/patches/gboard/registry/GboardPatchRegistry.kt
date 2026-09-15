@@ -219,8 +219,8 @@ val gboardFloatingWebSearchPatch = gboardPublicResourcePatch(
 val gboardGeminiTranslationPatch = gboardPublicResourcePatch(
     featureId = "gemini_translation",
     name = "Gemini Translation",
-    description = "在 Access Point 工具列新增 Gemini 翻譯按鈕，自動偵測語言並以 Gemini API 翻譯選取文字或整個輸入框；API 金鑰可在 Patches 設定中儲存。\n" +
-        "Add a Gemini Translate button to the Access Point toolbar that auto-detects the language and translates the selected text or the whole field with the Gemini API; the API key is saved in Patches settings.",
+    description = "在 Access Point 工具列新增 Gemini 翻譯按鈕，直接在鍵盤上方停靠翻譯列：來源／目標語言、交換、原文與結果都在鍵盤內完成，不會跳出全螢幕視窗；API 金鑰可在 Patches 設定中儲存。\n" +
+        "Add a Gemini Translate button to the Access Point toolbar that docks a Google Translate style bar right above the keyboard rows — source and target chips, swap, the text to translate and the result all stay inside the keyboard; the API key is saved in Patches settings.",
     default = true,
 ) {
     compatibleWith(COMPATIBILITY_GBOARD)

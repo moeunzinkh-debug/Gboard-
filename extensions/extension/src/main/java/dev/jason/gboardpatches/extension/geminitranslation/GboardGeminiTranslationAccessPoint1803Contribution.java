@@ -129,7 +129,7 @@ public final class GboardGeminiTranslationAccessPoint1803Contribution {
         @Override
         public void run() {
             try {
-                GboardGeminiTranslationRuntime.openTranslationBox(contextReference.get());
+                GboardGeminiTranslationRuntime.openTranslationPanel(contextReference.get());
             } catch (Throwable ignored) {
                 // The toolbar click path must never throw into Gboard.
             }
